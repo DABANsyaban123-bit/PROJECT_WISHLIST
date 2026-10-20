@@ -27,6 +27,10 @@ $persentase_progres = $total_barang > 0
     ? round(($sudah_dibeli / $total_barang) * 100)
     : 0;
 
+$persentase_progres = $total_barang > 0
+    ? round(($sudah_dibeli / $total_barang) * 100)
+    : 0;
+
 // Mengambil seluruh data barang
 
 $cari = trim($_GET['cari'] ?? '');
@@ -228,6 +232,40 @@ $query_pengeluaran_terbaru = mysqli_query(
                 </div>
             </div>
 
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+
+                        <div class="d-flex justify-content-between
+                        align-items-center mb-2">
+                            <h5 class="fw-bold mb-0">
+                                Progres Wishlist
+                            </h5>
+
+                            <span class="fw-bold">
+                                <?= $persentase_progres ?>%
+                            </span>
+                        </div>
+
+                        <div class="progress" style="height: 12px;">
+                            <div
+                                class="progress-bar"
+                                role="progressbar"
+                                style="width: <?= $persentase_progres ?>%; background-color: #253C6D;"
+                                aria-valuenow="<?= $persentase_progres ?>"
+                                aria-valuemin="0"
+                                aria-valuemax="100">
+                            </div>
+                        </div>
+
+                        <p class="text-secondary small mt-2 mb-0">
+                            <?= $sudah_dibeli ?> dari <?= $total_barang ?>
+                            barang wishlist sudah dibeli.
+                        </p>
+
+                    </div>
+                </div>
+            </div>
 
             <div class="col-12">
                 <div class="card border-0 shadow-sm">
@@ -517,7 +555,7 @@ $query_pengeluaran_terbaru = mysqli_query(
 
                         </div>
                     </div>
-                    
+
                 </div>
 
             </div>

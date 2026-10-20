@@ -1,5 +1,5 @@
 <?php
-include "config.php";
+include_once __DIR__ . "/../config.php";
 
 // Menghitung total barang
 $query_total = mysqli_query($koneksi, "

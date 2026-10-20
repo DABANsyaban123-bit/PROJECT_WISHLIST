@@ -78,7 +78,16 @@ $query_bulan = mysqli_query($koneksi, "
     WHERE YEAR(tanggal_pengeluaran) = YEAR(CURDATE())
       AND MONTH(tanggal_pengeluaran) = MONTH(CURDATE())
 ");
+
 $total_bulan = mysqli_fetch_assoc($query_bulan)['total'];
+
+// Pengeluaran terbaru
+$query_pengeluaran_terbaru = mysqli_query(
+    $koneksi,
+    "SELECT * FROM pengeluaran
+     ORDER BY tanggal_pengeluaran DESC
+     LIMIT 5"
+);
 
 ?>
 
@@ -434,6 +443,81 @@ $total_bulan = mysqli_fetch_assoc($query_bulan)['total'];
                         </tbody>
 
                     </table>
+
+                    <div class="card border-0 shadow-sm mt-4">
+                        <div class="card-body p-4">
+
+                            <div class="d-flex justify-content-between
+                    align-items-center mb-3">
+                                <h5 class="fw-bold mb-0">
+                                    Pengeluaran Terbaru
+                                </h5>
+
+                                <a href="../pengeluaran/"
+                                    class="btn btn-sm btn-outline-primary">
+                                    Lihat Semua
+                                </a>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Tanggal</th>
+                                            <th>Keterangan</th>
+                                            <th>Jumlah</th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        <?php if (
+                                            mysqli_num_rows($query_pengeluaran_terbaru) > 0
+                                        ): ?>
+
+                                            <?php while (
+                                                $pengeluaran = mysqli_fetch_assoc(
+                                                    $query_pengeluaran_terbaru
+                                                )
+                                            ): ?>
+                                                <tr>
+                                                    <td>
+                                                        <?= htmlspecialchars(
+                                                            $pengeluaran['tanggal_pengeluaran']
+                                                        ) ?>
+                                                    </td>
+
+                                                    <td>
+                                                        <?= htmlspecialchars(
+                                                            $pengeluaran['nama_pengeluaran']
+                                                        ) ?>
+                                                    </td>
+
+                                                    <td class="fw-semibold">
+                                                        Rp <?= number_format(
+                                                                $pengeluaran['jumlah'],
+                                                                0,
+                                                                ',',
+                                                                '.'
+                                                            ) ?>
+                                                    </td>
+                                                </tr>
+                                            <?php endwhile; ?>
+
+                                        <?php else: ?>
+                                            <tr>
+                                                <td colspan="3"
+                                                    class="text-center text-secondary py-4">
+                                                    Belum ada data pengeluaran.
+                                                </td>
+                                            </tr>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                        </div>
+                    </div>
+
                 </div>
 
             </div>

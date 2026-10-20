@@ -349,9 +349,19 @@ $total_bulan = mysqli_fetch_assoc($query_bulan)['total'];
                                             Rp <?= number_format((float) $barang['harga'], 0, ',', '.') ?>
                                         </td>
 
+
                                         <td>
-                                            <?= htmlspecialchars($barang['status']) ?>
+                                            <?php if ($barang['status'] === 'Sudah Dibeli'): ?>
+                                                <span class="badge rounded-pill text-bg-success">
+                                                    ✓ Sudah Dibeli
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="badge rounded-pill text-bg-warning">
+                                                    ◷ Belum Dibeli
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
+
 
                                         <td>
                                             <div class="d-flex gap-2">

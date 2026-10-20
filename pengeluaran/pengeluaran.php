@@ -1,5 +1,5 @@
 <?php
-include "config.php";
+include_once __DIR__ . "/../config.php";
 
 // Total pengeluaran minggu ini
 $query_minggu = mysqli_query($koneksi, "

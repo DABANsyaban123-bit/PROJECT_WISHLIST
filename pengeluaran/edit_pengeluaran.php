@@ -1,6 +1,6 @@
 
 <?php
-include "config.php";
+include_once __DIR__ . "/../config.php";
 
 $id = filter_input(INPUT_GET, "id", FILTER_VALIDATE_INT);
 

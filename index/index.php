@@ -85,6 +85,30 @@ $query_bulan = mysqli_query($koneksi, "
 
 $total_bulan = mysqli_fetch_assoc($query_bulan)['total'];
 
+// Data pengeluaran selama 7 hari terakhir
+$query_grafik = mysqli_query($koneksi, "
+    SELECT
+        DATE(tanggal_pengeluaran) AS tanggal,
+        SUM(jumlah) AS total
+    FROM pengeluaran
+    WHERE tanggal_pengeluaran >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      AND tanggal_pengeluaran < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+    GROUP BY DATE(tanggal_pengeluaran)
+    ORDER BY tanggal ASC
+");
+
+$label_grafik = [];
+$data_grafik = [];
+
+while ($row = mysqli_fetch_assoc($query_grafik)) {
+    $label_grafik[] = date(
+        'd/m',
+        strtotime($row['tanggal'])
+    );
+
+    $data_grafik[] = (float) $row['total'];
+}
+
 // Pengeluaran terbaru
 $query_pengeluaran_terbaru = mysqli_query(
     $koneksi,
@@ -294,6 +318,21 @@ $query_pengeluaran_terbaru = mysqli_query(
                 </div>
             </div>
 
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-1">
+                        Grafik Pengeluaran
+                    </h5>
+
+                    <p class="text-secondary small mb-4">
+                        Pengeluaran selama 7 hari terakhir
+                    </p>
+
+                    <div style="height: 300px;">
+                        <canvas id="grafikPengeluaran"></canvas>
+                    </div>
+                </div>
+            </div>
 
         </div>
 
@@ -535,6 +574,48 @@ $query_pengeluaran_terbaru = mysqli_query(
 
     </div>
 
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        const labelGrafik = <?= json_encode($label_grafik) ?>;
+        const dataGrafik = <?= json_encode($data_grafik) ?>;
+
+        const canvas = document.getElementById('grafikPengeluaran');
+
+        if (canvas) {
+            new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: labelGrafik,
+                    datasets: [{
+                        label: 'Pengeluaran (Rp)',
+                        data: dataGrafik,
+                        backgroundColor: '#253C6D',
+                        borderColor: '#D6AE58',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'Rp ' +
+                                        new Intl.NumberFormat('id-ID')
+                                        .format(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
 </body>
 
 </html>

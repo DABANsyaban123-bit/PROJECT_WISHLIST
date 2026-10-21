@@ -234,3 +234,69 @@ a:not(.btn) {
         scroll-behavior: auto !important;
     }
 }
+
+
+/* ===== Dashboard Wishlist: Finishing ===== */
+
+/* Aksen warna utama */
+:root {
+    --wishlist-navy: #253C6D;
+    --wishlist-navy-light: #30497D;
+    --wishlist-gold: #D6AE58;
+    --wishlist-cream: #F7F4EC;
+}
+
+/* Kartu ringkasan pengeluaran */
+.card:has(.text-secondary) {
+    transition: box-shadow 0.2s ease,
+                transform 0.2s ease;
+}
+
+/* Angka statistik */
+.card .display-6,
+.card h2,
+.card h3 {
+    color: var(--wishlist-navy);
+    font-weight: 750;
+}
+
+/* Progress Wishlist */
+.progress {
+    background-color: #E8ECF4;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    background-color: var(--wishlist-navy) !important;
+    border-radius: 999px;
+}
+
+/* Tombol utama */
+.btn-primary {
+    background-color: var(--wishlist-navy);
+    border-color: var(--wishlist-navy);
+}
+
+.btn-primary:hover {
+    background-color: var(--wishlist-navy-light);
+    border-color: var(--wishlist-navy-light);
+}
+
+/* Tampilan grafik */
+#grafikPengeluaran {
+    max-width: 100%;
+}
+
+/* Tampilan layar kecil */
+@media (max-width: 767.98px) {
+    .container,
+    .container-fluid {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .table-responsive {
+        font-size: 0.88rem;
+    }
+}

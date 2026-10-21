@@ -344,7 +344,7 @@ $query_pengeluaran_terbaru = mysqli_query(
 
 
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table class="table table-hover align-middle wishlist-table">
                         <thead class="table-light">
                             <tr>
                                 <th>No.</th>

@@ -91,110 +91,112 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             </div>
                         <?php endif; ?>
 
-                        <form method="POST" action="tambah.php">
+                        <div class="wishlist-form-card">
+                            <form method="POST" action="tambah.php">
 
-                            <div class="mb-3">
-                                <label for="nama_barang" class="form-label">
-                                    Nama Barang
-                                </label>
+                                <div class="mb-3">
+                                    <label for="nama_barang" class="form-label">
+                                        Nama Barang
+                                    </label>
 
-                                <input
-                                    type="text"
-                                    id="nama_barang"
-                                    name="nama_barang"
-                                    class="form-control"
-                                    maxlength="255"
-                                    value="<?= htmlspecialchars($nama_barang) ?>"
-                                    placeholder="Contoh: Laptop"
-                                    required>
-                            </div>
+                                    <input
+                                        type="text"
+                                        id="nama_barang"
+                                        name="nama_barang"
+                                        class="form-control"
+                                        maxlength="255"
+                                        value="<?= htmlspecialchars($nama_barang) ?>"
+                                        placeholder="Contoh: Laptop"
+                                        required>
+                                </div>
 
-                            <div class="mb-3">
-                                <label for="kategori" class="form-label">
-                                    Kategori
-                                </label>
+                                <div class="mb-3">
+                                    <label for="kategori" class="form-label">
+                                        Kategori
+                                    </label>
 
-                                <select
-                                    id="kategori"
-                                    name="kategori"
-                                    class="form-select"
-                                    required>
-                                    <option value="">Pilih kategori</option>
+                                    <select
+                                        id="kategori"
+                                        name="kategori"
+                                        class="form-select"
+                                        required>
+                                        <option value="">Pilih kategori</option>
 
-                                    <?php
-                                    $daftar_kategori = [
-                                        "Elektronik",
-                                        "Pakaian",
-                                        "Buku",
-                                        "Aksesoris",
-                                        "Kebutuhan Sekolah",
-                                        "Lainnya"
-                                    ];
-                                    ?>
+                                        <?php
+                                        $daftar_kategori = [
+                                            "Elektronik",
+                                            "Pakaian",
+                                            "Buku",
+                                            "Aksesoris",
+                                            "Kebutuhan Sekolah",
+                                            "Lainnya"
+                                        ];
+                                        ?>
 
-                                    <?php foreach ($daftar_kategori as $item): ?>
+                                        <?php foreach ($daftar_kategori as $item): ?>
+                                            <option
+                                                value="<?= htmlspecialchars($item) ?>"
+                                                <?= $kategori === $item ? "selected" : "" ?>>
+                                                <?= htmlspecialchars($item) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="harga" class="form-label">
+                                        Harga (Rp)
+                                    </label>
+
+                                    <input
+                                        type="number"
+                                        id="harga"
+                                        name="harga"
+                                        class="form-control"
+                                        min="0"
+                                        step="0.01"
+                                        value="<?= htmlspecialchars($harga) ?>"
+                                        placeholder="Contoh: 150000"
+                                        required>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="status" class="form-label">
+                                        Status Barang
+                                    </label>
+
+                                    <select
+                                        id="status"
+                                        name="status"
+                                        class="form-select"
+                                        required>
                                         <option
-                                            value="<?= htmlspecialchars($item) ?>"
-                                            <?= $kategori === $item ? "selected" : "" ?>>
-                                            <?= htmlspecialchars($item) ?>
+                                            value="Belum Dibeli"
+                                            <?= $status === "Belum Dibeli" ? "selected" : "" ?>>
+                                            Belum Dibeli
                                         </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
 
-                            <div class="mb-3">
-                                <label for="harga" class="form-label">
-                                    Harga (Rp)
-                                </label>
+                                        <option
+                                            value="Sudah Dibeli"
+                                            <?= $status === "Sudah Dibeli" ? "selected" : "" ?>>
+                                            Sudah Dibeli
+                                        </option>
+                                    </select>
+                                </div>
 
-                                <input
-                                    type="number"
-                                    id="harga"
-                                    name="harga"
-                                    class="form-control"
-                                    min="0"
-                                    step="0.01"
-                                    value="<?= htmlspecialchars($harga) ?>"
-                                    placeholder="Contoh: 150000"
-                                    required>
-                            </div>
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary flex-fill">
+                                        Simpan Barang
+                                    </button>
 
-                            <div class="mb-4">
-                                <label for="status" class="form-label">
-                                    Status Barang
-                                </label>
+                                    <a href="index.php" class="btn btn-outline-secondary">
+                                        Kembali
+                                    </a>
+                                </div>
 
-                                <select
-                                    id="status"
-                                    name="status"
-                                    class="form-select"
-                                    required>
-                                    <option
-                                        value="Belum Dibeli"
-                                        <?= $status === "Belum Dibeli" ? "selected" : "" ?>>
-                                        Belum Dibeli
-                                    </option>
+                            </form>
 
-                                    <option
-                                        value="Sudah Dibeli"
-                                        <?= $status === "Sudah Dibeli" ? "selected" : "" ?>>
-                                        Sudah Dibeli
-                                    </option>
-                                </select>
-                            </div>
-
-                            <div class="d-flex gap-2">
-                                <button type="submit" class="btn btn-primary flex-fill">
-                                    Simpan Barang
-                                </button>
-
-                                <a href="index.php" class="btn btn-outline-secondary">
-                                    Kembali
-                                </a>
-                            </div>
-
-                        </form>
-
+                        </div>
                     </div>
                 </div>
 

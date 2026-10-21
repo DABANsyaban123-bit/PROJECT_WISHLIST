@@ -445,4 +445,62 @@ a:not(.btn) {
     }
 }
 
-    
+
+/* ===== Form Pengeluaran ===== */
+
+.expense-form-card {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 28px;
+    background: #FFFFFF;
+    border: 1px solid #E8EAF0;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(37, 60, 109, 0.07);
+}
+
+.expense-form-card .form-label {
+    display: block;
+    color: #253C6D;
+    font-weight: 650;
+    margin-bottom: 8px;
+}
+
+.expense-form-card .form-control,
+.expense-form-card .form-select {
+    min-height: 46px;
+    padding: 10px 13px;
+    border: 1px solid #DCE1EA;
+    border-radius: 10px;
+}
+
+.expense-form-card .form-control:focus,
+.expense-form-card .form-select:focus {
+    border-color: #30497D;
+    box-shadow: 0 0 0 3px rgba(37, 60, 109, 0.12);
+}
+
+.expense-form-card .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #E8EAF0;
+}
+
+@media (max-width: 575.98px) {
+    .expense-form-card {
+        padding: 18px;
+    }
+
+    .expense-form-card .form-actions {
+        flex-direction: column-reverse;
+    }
+
+    .expense-form-card .form-actions .btn {
+        width: 100%;
+    }
+}
+

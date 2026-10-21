@@ -196,7 +196,7 @@ $query_pengeluaran_terbaru = mysqli_query(
                     + Tambah Barang
                 </a>
 
-                <a href="pengeluaran.php" class="btn btn-outline-primary">
+                <a href="../pengeluaran/pengeluaran.php" class="btn btn-outline-primary">
                     Pengeluaran
                 </a>
             </div>

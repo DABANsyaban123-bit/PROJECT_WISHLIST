@@ -61,7 +61,7 @@ $query_pengeluaran = mysqli_query($koneksi, "
                 </p>
             </div>
 
-            <a href="index.php" class="btn btn-outline-secondary">
+            <a href="../index/index.php" class="btn btn-outline-secondary">
                 Kembali
             </a>
         </div>

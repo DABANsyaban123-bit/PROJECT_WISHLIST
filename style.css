@@ -1,0 +1,236 @@
+
+/* ========================================
+   WISHLIST PJK — FRONTEND FINISHING
+   Tema: Navy, Gold, Cream
+======================================== */
+
+:root {
+    --navy: #253C6D;
+    --navy-light: #30497D;
+    --gold: #D6AE58;
+    --cream: #F7F4EC;
+    --text: #24324A;
+    --muted: #748096;
+    --surface: #FFFFFF;
+    --border-soft: #E8EAF0;
+    --shadow-soft: 0 8px 24px rgba(37, 60, 109, 0.07);
+    --shadow-hover: 0 12px 30px rgba(37, 60, 109, 0.12);
+}
+
+body {
+    color: var(--text);
+    background-color: var(--cream);
+    font-family: "Segoe UI", Arial, sans-serif;
+    line-height: 1.6;
+}
+
+/* Heading */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--navy);
+    letter-spacing: -0.3px;
+}
+
+h1 {
+    font-weight: 750;
+}
+
+h5 {
+    font-weight: 700;
+}
+
+/* Cards */
+.card {
+    background: var(--surface);
+    border: 1px solid rgba(37, 60, 109, 0.06);
+    border-radius: 18px;
+    box-shadow: var(--shadow-soft);
+    transition: box-shadow 0.2s ease,
+                transform 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: var(--shadow-hover);
+}
+
+.card-body {
+    padding: 1.35rem;
+}
+
+/* Primary buttons */
+.btn-primary {
+    color: #FFFFFF;
+    background-color: var(--navy);
+    border-color: var(--navy);
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.6rem 1rem;
+    transition: background-color 0.2s ease,
+                border-color 0.2s ease,
+                transform 0.2s ease;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    color: #FFFFFF;
+    background-color: var(--navy-light);
+    border-color: var(--navy-light);
+    transform: translateY(-1px);
+}
+
+.btn-outline-primary {
+    color: var(--navy);
+    border-color: var(--navy);
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.btn-outline-primary:hover {
+    color: #FFFFFF;
+    background-color: var(--navy);
+    border-color: var(--navy);
+}
+
+.btn-danger,
+.btn-warning,
+.btn-success,
+.btn-secondary {
+    border-radius: 9px;
+    font-weight: 600;
+}
+
+/* Tables */
+.table-responsive {
+    border-radius: 12px;
+}
+
+.table {
+    margin-bottom: 0;
+    vertical-align: middle;
+    color: var(--text);
+}
+
+.table thead th {
+    padding: 0.95rem 0.85rem;
+    color: var(--navy);
+    background-color: #F0F3F9;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 0.84rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.table tbody td {
+    padding: 0.9rem 0.85rem;
+    border-color: var(--border-soft);
+}
+
+.table-hover tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.table-hover tbody tr:hover > * {
+    background-color: #F8F9FC;
+    color: var(--text);
+}
+
+/* Forms */
+.form-control,
+.form-select {
+    min-height: 44px;
+    color: var(--text);
+    background-color: #FFFFFF;
+    border: 1px solid #DCE1EA;
+    border-radius: 10px;
+    transition: border-color 0.2s ease,
+                box-shadow 0.2s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--navy-light);
+    box-shadow: 0 0 0 0.2rem rgba(37, 60, 109, 0.12);
+}
+
+.form-label {
+    color: var(--navy);
+    font-weight: 600;
+    margin-bottom: 0.45rem;
+}
+
+/* Search and filter controls */
+input::placeholder,
+textarea::placeholder {
+    color: #9AA3B2;
+}
+
+/* Wishlist progress */
+.progress {
+    overflow: hidden;
+    background-color: #E8ECF4;
+    border-radius: 999px;
+}
+
+.progress-bar {
+    border-radius: 999px;
+    transition: width 0.5s ease;
+}
+
+/* Status badges */
+.badge {
+    padding: 0.5em 0.75em;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.1px;
+}
+
+/* Links */
+a {
+    transition: color 0.2s ease;
+}
+
+a:not(.btn) {
+    text-underline-offset: 3px;
+}
+
+/* Responsive layout */
+@media (max-width: 767.98px) {
+    body {
+        font-size: 0.94rem;
+    }
+
+    h1 {
+        font-size: 1.65rem;
+    }
+
+    h2 {
+        font-size: 1.4rem;
+    }
+
+    .card {
+        border-radius: 15px;
+    }
+
+    .card-body {
+        padding: 1rem;
+    }
+
+    .table thead th,
+    .table tbody td {
+        padding: 0.7rem;
+        font-size: 0.85rem;
+    }
+
+    .btn {
+        max-width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

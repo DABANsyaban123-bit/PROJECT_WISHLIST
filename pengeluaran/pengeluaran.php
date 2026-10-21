@@ -281,7 +281,7 @@ if (!$query_pengeluaran) {
                 </li>
 
                 <li class="nav-item">
-                    <a class="nav-link active" href="index.php">
+                    <a class="nav-link active" href="../pengeluaran/pengeluaran.php">
                         Pengeluaran
                     </a>
                 </li>

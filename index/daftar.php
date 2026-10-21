@@ -115,7 +115,7 @@ $total_hasil = mysqli_num_rows($query_barang);
                 </li>
 
                 <li class="nav-item">
-                    <a class="nav-link" href="../pengeluaran/index.php">
+                    <a class="nav-link" href="../pengeluaran/pengeluaran.php">
                         Pengeluaran
                     </a>
                 </li>

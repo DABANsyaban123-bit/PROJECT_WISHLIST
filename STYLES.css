@@ -398,3 +398,51 @@ a:not(.btn) {
         width: 100%;
     }
 }
+
+
+/* ===== Tabel Pengeluaran ===== */
+
+.expense-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 0;
+}
+
+.expense-table thead th {
+    background: #EEF1F7;
+    color: #253C6D;
+    padding: 15px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    white-space: nowrap;
+    border-bottom: 1px solid #E2E6EF;
+}
+
+.expense-table tbody td {
+    padding: 15px;
+    vertical-align: middle;
+    border-bottom: 1px solid #E8EAF0;
+}
+
+.expense-table tbody tr:hover td {
+    background-color: #F8F7F2;
+}
+
+.expense-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.expense-table .btn {
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+@media (max-width: 767.98px) {
+    .expense-table thead th,
+    .expense-table tbody td {
+        padding: 10px;
+        font-size: 0.82rem;
+    }
+}
+
+    

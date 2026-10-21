@@ -113,7 +113,7 @@ $query_pengeluaran = mysqli_query($koneksi, "
                 <h5 class="mb-3">Riwayat Pengeluaran</h5>
 
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table class="table table-hover align-middle expense-table">
 
                         <thead>
                             <tr>

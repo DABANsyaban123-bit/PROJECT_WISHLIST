@@ -1,4 +1,3 @@
-
 <?php
 include_once __DIR__ . "/../config.php";
 
@@ -74,120 +73,121 @@ $query_barang = mysqli_query(
 
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tambah Pengeluaran | WishList</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet">
+        rel="stylesheet">
 </head>
 
 <body class="bg-light">
 
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-7 col-lg-6">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-7 col-lg-6">
 
-            <div class="card border-0 shadow-sm">
-                <div class="card-body p-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
 
-                    <h2 class="mb-2">Tambah Pengeluaran</h2>
-                    <p class="text-secondary mb-4">
-                        Catat pengeluaranmu di sini.
-                    </p>
+                        <h2 class="mb-2">Tambah Pengeluaran</h2>
+                        <p class="text-secondary mb-4">
+                            Catat pengeluaranmu di sini.
+                        </p>
 
-                    <?php if ($pesan_error !== ""): ?>
-                        <div class="alert alert-danger">
-                            <?= htmlspecialchars($pesan_error) ?>
+                        <?php if ($pesan_error !== ""): ?>
+                            <div class="alert alert-danger">
+                                <?= htmlspecialchars($pesan_error) ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <div class="expense-form-card">
+                            <form method="POST">
+
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        Nama Pengeluaran
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="nama_pengeluaran"
+                                        class="form-control"
+                                        placeholder="Contoh: Membeli buku"
+                                        maxlength="150"
+                                        required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        Barang Terkait (opsional)
+                                    </label>
+                                    <select name="id_barang" class="form-select">
+                                        <option value="">Tidak terkait dengan barang</option>
+
+                                        <?php while ($barang = mysqli_fetch_assoc($query_barang)): ?>
+                                            <option value="<?= (int) $barang['id_barang'] ?>">
+                                                <?= htmlspecialchars($barang['nama_barang']) ?>
+                                            </option>
+                                        <?php endwhile; ?>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Jumlah (Rp)</label>
+                                    <input
+                                        type="number"
+                                        name="jumlah"
+                                        class="form-control"
+                                        min="0.01"
+                                        step="0.01"
+                                        placeholder="Contoh: 25000"
+                                        required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Tanggal Pengeluaran</label>
+                                    <input
+                                        type="date"
+                                        name="tanggal_pengeluaran"
+                                        class="form-control"
+                                        value="<?= date('Y-m-d') ?>"
+                                        required>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label">Catatan (opsional)</label>
+                                    <textarea
+                                        name="catatan"
+                                        class="form-control"
+                                        rows="3"
+                                        maxlength="255"
+                                        placeholder="Tambahkan catatan..."></textarea>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary">
+                                        Simpan Pengeluaran
+                                    </button>
+
+                                    <a href="pengeluaran.php"
+                                        class="btn btn-outline-secondary">
+                                        Batal
+                                    </a>
+                                </div>
+
+                            </form>
+
                         </div>
-                    <?php endif; ?>
 
-                    <form method="POST">
-
-                        <div class="mb-3">
-                            <label class="form-label">
-                                Nama Pengeluaran
-                            </label>
-                            <input
-                                type="text"
-                                name="nama_pengeluaran"
-                                class="form-control"
-                                placeholder="Contoh: Membeli buku"
-                                maxlength="150"
-                                required
-                            >
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">
-                                Barang Terkait (opsional)
-                            </label>
-                            <select name="id_barang" class="form-select">
-                                <option value="">Tidak terkait dengan barang</option>
-
-                                <?php while ($barang = mysqli_fetch_assoc($query_barang)): ?>
-                                    <option value="<?= (int) $barang['id_barang'] ?>">
-                                        <?= htmlspecialchars($barang['nama_barang']) ?>
-                                    </option>
-                                <?php endwhile; ?>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Jumlah (Rp)</label>
-                            <input
-                                type="number"
-                                name="jumlah"
-                                class="form-control"
-                                min="0.01"
-                                step="0.01"
-                                placeholder="Contoh: 25000"
-                                required
-                            >
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Tanggal Pengeluaran</label>
-                            <input
-                                type="date"
-                                name="tanggal_pengeluaran"
-                                class="form-control"
-                                value="<?= date('Y-m-d') ?>"
-                                required
-                            >
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label">Catatan (opsional)</label>
-                            <textarea
-                                name="catatan"
-                                class="form-control"
-                                rows="3"
-                                maxlength="255"
-                                placeholder="Tambahkan catatan..."
-                            ></textarea>
-                        </div>
-
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">
-                                Simpan Pengeluaran
-                            </button>
-
-                            <a href="pengeluaran.php"
-                               class="btn btn-outline-secondary">
-                                Batal
-                            </a>
-                        </div>
-
-                    </form>
-
+                    </div>
                 </div>
-            </div>
 
+            </div>
         </div>
     </div>
-</div>
 
 </body>
+
 </html>

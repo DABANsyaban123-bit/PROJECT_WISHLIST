@@ -437,7 +437,7 @@ $query_pengeluaran_terbaru = mysqli_query(
                                     Pengeluaran Terbaru
                                 </h5>
 
-                                <a href="../pengeluaran/"
+                                <a href="../pengeluaran/pengeluaran.php"
                                     class="btn btn-sm btn-outline-primary">
                                     Lihat Semua
                                 </a>

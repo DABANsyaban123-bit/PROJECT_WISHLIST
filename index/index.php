@@ -267,7 +267,7 @@ $query_pengeluaran_terbaru = mysqli_query(
                 </div>
             </div>
 
-            
+
 
 
             <div class="col-md-6">
@@ -492,13 +492,13 @@ $query_pengeluaran_terbaru = mysqli_query(
                                                 <tr>
                                                     <td>
                                                         <?= htmlspecialchars(
-                                                            $pengeluaran['tanggal']
+                                                            $pengeluaran['tanggal_pengeluaran']
                                                         ) ?>
                                                     </td>
 
                                                     <td>
                                                         <?= htmlspecialchars(
-                                                            $pengeluaran['keterangan']
+                                                            $pengeluaran['nama_pengeluaran']
                                                         ) ?>
                                                     </td>
 

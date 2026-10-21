@@ -504,3 +504,83 @@ a:not(.btn) {
     }
 }
 
+
+/* ===== NAVBAR WISHLIST ===== */
+.wishlist-navbar {
+    background-color: var(--navy, #253C6D);
+    padding: 14px 0;
+    box-shadow: 0 4px 16px rgba(25, 39, 67, 0.10);
+}
+
+.wishlist-navbar .navbar-brand,
+.wishlist-navbar .nav-link {
+    color: #ffffff;
+}
+
+.wishlist-navbar .navbar-brand {
+    letter-spacing: 0.3px;
+}
+
+.wishlist-navbar .nav-link {
+    padding: 9px 14px !important;
+    border-radius: 8px;
+    transition: background-color 0.2s ease;
+}
+
+.wishlist-navbar .nav-link:hover,
+.wishlist-navbar .nav-link.active {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.14);
+}
+
+.wishlist-navbar .navbar-toggler {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.wishlist-navbar .navbar-toggler-icon {
+    filter: brightness(0) invert(1);
+}
+
+/* ===== DAFTAR BARANG ===== */
+.wishlist-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+
+.wishlist-table thead th {
+    background-color: #f1f3f8;
+    color: var(--navy, #253C6D);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 15px 16px;
+    border-bottom: 1px solid #e2e7ef;
+    white-space: nowrap;
+}
+
+.wishlist-table tbody td {
+    padding: 15px 16px;
+    vertical-align: middle;
+    border-bottom: 1px solid #edf0f5;
+}
+
+.wishlist-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.wishlist-table tbody tr:hover {
+    background-color: #fafbfe;
+}
+
+.wishlist-table .btn {
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+@media (max-width: 768px) {
+    .wishlist-table thead th,
+    .wishlist-table tbody td {
+        padding: 11px 12px;
+    }
+}
+

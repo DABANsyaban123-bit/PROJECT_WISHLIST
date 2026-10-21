@@ -140,6 +140,45 @@ $query_pengeluaran_terbaru = mysqli_query(
 
 <body class="bg-light">
 
+    <nav class="navbar navbar-expand-lg wishlist-navbar">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="../index/index.php">
+                Wishlist
+            </a>
+
+            <button
+                class="navbar-toggler"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarWishlist"
+                aria-controls="navbarWishlist"
+                aria-expanded="false"
+                aria-label="Buka navigasi">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarWishlist">
+                <ul class="navbar-nav ms-auto gap-lg-2">
+                    <li class="nav-item">
+                        <a class="nav-link" href="../index/index.php">
+                            Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../index/daftar.php">
+                            Daftar Barang
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../pengeluaran/pengeluaran.php">
+                            Pengeluaran
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
     <div class="container py-5">
 
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">

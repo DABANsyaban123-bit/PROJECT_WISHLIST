@@ -1,52 +1,88 @@
+
 <?php
 include_once __DIR__ . "/../config.php";
 
-// Menghitung total barang
+function aman($nilai) {
+    return htmlspecialchars((string)($nilai ?? ""), ENT_QUOTES, "UTF-8");
+}
+
+// Hanya menghitung barang aktif, yaitu barang yang belum dicatat sebagai pengeluaran.
+$sql_aktif = "
+    SELECT b.*
+    FROM barang b
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM pengeluaran p
+        WHERE p.id_barang = b.id_barang
+    )
+";
+
+// Statistik barang aktif
 $query_total = mysqli_query($koneksi, "
-    SELECT COUNT(*) AS total FROM barang
-");
-$total_barang = mysqli_fetch_assoc($query_total)['total'];
-
-// Menghitung barang yang sudah dibeli
-$query_sudah = mysqli_query($koneksi, "
     SELECT COUNT(*) AS total
-    FROM barang
-    WHERE status = 'Sudah Dibeli'
+    FROM barang b
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pengeluaran p
+        WHERE p.id_barang = b.id_barang
+    )
 ");
-$sudah_dibeli = mysqli_fetch_assoc($query_sudah)['total'];
+$total_barang = (int) mysqli_fetch_assoc($query_total)["total"];
 
-// Menghitung barang yang belum dibeli
 $query_belum = mysqli_query($koneksi, "
     SELECT COUNT(*) AS total
-    FROM barang
-    WHERE status != 'Sudah Dibeli'
+    FROM barang b
+    WHERE b.status = 'Belum Dibeli'
+    AND NOT EXISTS (
+        SELECT 1 FROM pengeluaran p
+        WHERE p.id_barang = b.id_barang
+    )
 ");
-$belum_dibeli = mysqli_fetch_assoc($query_belum)['total'];
+$belum_dibeli = (int) mysqli_fetch_assoc($query_belum)["total"];
 
-$persentase_progres = $total_barang > 0
+$query_sudah = mysqli_query($koneksi, "
+    SELECT COUNT(*) AS total
+    FROM barang b
+    WHERE b.status = 'Sudah Dibeli'
+    AND NOT EXISTS (
+        SELECT 1 FROM pengeluaran p
+        WHERE p.id_barang = b.id_barang
+    )
+");
+$sudah_dibeli = (int) mysqli_fetch_assoc($query_sudah)["total"];
+
+$query_kebutuhan = mysqli_query($koneksi, "
+    SELECT COUNT(*) AS total
+    FROM barang b
+    WHERE b.jenis = 'Kebutuhan'
+    AND NOT EXISTS (
+        SELECT 1 FROM pengeluaran p
+        WHERE p.id_barang = b.id_barang
+    )
+");
+$total_kebutuhan = (int) mysqli_fetch_assoc($query_kebutuhan)["total"];
+
+$query_keinginan = mysqli_query($koneksi, "
+    SELECT COUNT(*) AS total
+    FROM barang b
+    WHERE b.jenis = 'Keinginan'
+    AND NOT EXISTS (
+        SELECT 1 FROM pengeluaran p
+        WHERE p.id_barang = b.id_barang
+    )
+");
+$total_keinginan = (int) mysqli_fetch_assoc($query_keinginan)["total"];
+
+$persentase = $total_barang > 0
     ? round(($sudah_dibeli / $total_barang) * 100)
     : 0;
-
-// Preview 5 barang terbaru, tanpa tombol tambah/edit/hapus
-$query_barang = mysqli_query($koneksi, "
-    SELECT id_barang, nama_barang, kategori, harga, status
-    FROM barang
-    ORDER BY id_barang DESC
-    LIMIT 5
-");
-
-if (!$query_barang) {
-    die("Gagal mengambil data barang: " . mysqli_error($koneksi));
-}
 
 // Total pengeluaran minggu ini
 $query_minggu = mysqli_query($koneksi, "
     SELECT COALESCE(SUM(jumlah), 0) AS total
     FROM pengeluaran
-    WHERE YEARWEEK(tanggal_pengeluaran, 1)
-        = YEARWEEK(CURDATE(), 1)
+    WHERE YEARWEEK(tanggal_pengeluaran, 1) = YEARWEEK(CURDATE(), 1)
 ");
-$total_minggu = mysqli_fetch_assoc($query_minggu)['total'];
+$total_minggu = (float) mysqli_fetch_assoc($query_minggu)["total"];
 
 // Total pengeluaran bulan ini
 $query_bulan = mysqli_query($koneksi, "
@@ -55,190 +91,279 @@ $query_bulan = mysqli_query($koneksi, "
     WHERE YEAR(tanggal_pengeluaran) = YEAR(CURDATE())
       AND MONTH(tanggal_pengeluaran) = MONTH(CURDATE())
 ");
-$total_bulan = mysqli_fetch_assoc($query_bulan)['total'];
+$total_bulan = (float) mysqli_fetch_assoc($query_bulan)["total"];
+
+// Daftar barang aktif terbaru
+$query_barang = mysqli_query($koneksi, "
+    SELECT b.id_barang, b.nama_barang, b.kategori, b.jenis,
+           b.harga, b.status
+    FROM barang b
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pengeluaran p
+        WHERE p.id_barang = b.id_barang
+    )
+    ORDER BY b.id_barang DESC
+    LIMIT 8
+");
+
+// Pengeluaran terbaru
+$query_pengeluaran = mysqli_query($koneksi, "
+    SELECT p.id_pengeluaran, p.nama_pengeluaran, p.jumlah,
+           p.tanggal_pengeluaran, p.catatan, b.nama_barang
+    FROM pengeluaran p
+    LEFT JOIN barang b ON p.id_barang = b.id_barang
+    ORDER BY p.tanggal_pengeluaran DESC, p.id_pengeluaran DESC
+    LIMIT 5
+");
 
 // Data grafik pengeluaran 7 hari terakhir
 $query_grafik = mysqli_query($koneksi, "
-    SELECT
-        DATE(tanggal_pengeluaran) AS tanggal,
-        SUM(jumlah) AS total
+    SELECT DATE(tanggal_pengeluaran) AS tanggal,
+           COALESCE(SUM(jumlah), 0) AS total
     FROM pengeluaran
     WHERE tanggal_pengeluaran >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
       AND tanggal_pengeluaran < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
     GROUP BY DATE(tanggal_pengeluaran)
-    ORDER BY tanggal ASC
 ");
 
-$label_grafik = [];
 $data_grafik = [];
-
 while ($row = mysqli_fetch_assoc($query_grafik)) {
-    $label_grafik[] = date('d/m', strtotime($row['tanggal']));
-    $data_grafik[] = (float) $row['total'];
+    $data_grafik[$row["tanggal"]] = (float) $row["total"];
 }
 
-// Lima pengeluaran terbaru
-$query_pengeluaran_terbaru = mysqli_query($koneksi, "
-    SELECT *
-    FROM pengeluaran
-    ORDER BY tanggal_pengeluaran DESC
-    LIMIT 5
-");
+$label_grafik = [];
+$nilai_grafik = [];
+
+for ($i = 6; $i >= 0; $i--) {
+    $tanggal = date("Y-m-d", strtotime("-$i days"));
+    $label_grafik[] = date("d/m", strtotime($tanggal));
+    $nilai_grafik[] = $data_grafik[$tanggal] ?? 0;
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Wishlist</title>
 
-    <title>Dashboard | Wishlist PJK</title>
-
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../STYLES.css">
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet">
 
     <style>
-        .dashboard-page {
-            padding-top: clamp(28px, 5vw, 52px);
-            padding-bottom: 48px;
+        :root {
+            --navy: #101b35;
+            --navy-light: #192847;
+            --gold: #d8b45a;
+            --bg: #f4f6fa;
+            --muted: #758096;
         }
 
-        .dashboard-subtitle {
+        body {
+            background: var(--bg);
+            color: #202b40;
+            font-family: Arial, sans-serif;
+        }
+
+        .app-navbar {
+            background: var(--navy);
+            padding: 15px 0;
+        }
+
+        .brand {
+            color: #fff;
+            font-weight: 800;
+            font-size: 21px;
+            text-decoration: none;
+        }
+
+        .brand span {
+            color: var(--gold);
+        }
+
+        .nav-link-custom {
+            color: #dbe2f0;
+            text-decoration: none;
+            margin-left: 20px;
+            font-size: 14px;
+        }
+
+        .nav-link-custom:hover,
+        .nav-link-custom.active {
+            color: var(--gold);
+        }
+
+        .page-container {
+            max-width: 1250px;
+            margin: 0 auto;
+            padding: 32px 20px 50px;
+        }
+
+        .welcome-title {
+            font-size: clamp(25px, 4vw, 32px);
+            font-weight: 800;
+            color: var(--navy);
+            margin-bottom: 7px;
+        }
+
+        .muted {
             color: var(--muted);
-            margin-bottom: 0;
         }
 
-        .dashboard-stat-card,
-        .dashboard-panel {
+        .stat-card,
+        .panel {
+            background: #fff;
+            border: 1px solid #e8ecf3;
+            border-radius: 16px;
+            box-shadow: 0 5px 20px rgba(16, 27, 53, .04);
+        }
+
+        .stat-card {
+            padding: 22px;
             height: 100%;
-            overflow: hidden;
-            background: var(--surface);
-            border: 1px solid var(--border-soft);
-            border-radius: 18px;
-            box-shadow: var(--shadow-soft);
         }
 
-        .dashboard-stat-card {
-            transition: transform .2s ease, box-shadow .2s ease;
+        .stat-label {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 12px;
         }
 
-        .dashboard-stat-card:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-hover);
+        .stat-number {
+            font-size: 27px;
+            font-weight: 800;
+            color: var(--navy);
         }
 
-        .dashboard-stat-icon {
-            width: 46px;
-            height: 46px;
+        .stat-icon {
+            width: 43px;
+            height: 43px;
             display: grid;
             place-items: center;
-            flex-shrink: 0;
-            border-radius: 13px;
-            background: #EEF2FA;
-            color: var(--navy);
+            background: #f4edd9;
+            color: #8d6b18;
+            border-radius: 12px;
             font-size: 21px;
+        }
+
+        .panel {
+            padding: 23px;
+            margin-top: 24px;
+        }
+
+        .panel-title {
+            color: var(--navy);
+            font-size: 18px;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .btn-gold {
+            background: var(--gold);
+            color: var(--navy);
+            border: 0;
             font-weight: 700;
         }
 
-        .dashboard-stat-icon.gold {
-            background: #FBF3E2;
-            color: #A77D2D;
-        }
-
-        .dashboard-stat-icon.green {
-            background: #E7F5EC;
-            color: #23824D;
-        }
-
-        .dashboard-stat-value {
+        .btn-gold:hover {
+            background: #caa343;
             color: var(--navy);
-            font-size: clamp(25px, 3vw, 34px);
-            font-weight: 750;
-            line-height: 1.2;
         }
 
-        .dashboard-progress {
-            height: 11px;
+        .btn-navy {
+            background: var(--navy);
+            color: #fff;
+            border: 0;
         }
 
-        .dashboard-panel-heading {
-            padding: 22px 24px 0;
+        .btn-navy:hover {
+            background: var(--navy-light);
+            color: #fff;
         }
 
-        .dashboard-panel-body {
-            padding: 22px 24px 24px;
-        }
-
-        .dashboard-chart {
-            height: 290px;
-        }
-
-        .dashboard-table {
+        .table {
+            vertical-align: middle;
             margin-bottom: 0;
         }
 
-        .dashboard-table thead th {
-            color: var(--navy);
-            background: #F3F5FA;
+        .table thead th {
+            color: #778198;
             font-size: 12px;
             font-weight: 700;
-            letter-spacing: .35px;
-            padding: 15px 16px;
+            text-transform: uppercase;
             white-space: nowrap;
-            border-bottom: 1px solid #E3E8F0;
+            border-bottom: 1px solid #e8ecf3;
         }
 
-        .dashboard-table tbody td {
-            padding: 15px 16px;
-            border-bottom: 1px solid #EDF0F5;
-            vertical-align: middle;
+        .table tbody td {
+            padding-top: 14px;
+            padding-bottom: 14px;
+            border-color: #edf0f5;
         }
 
-        .dashboard-table tbody tr:last-child td {
-            border-bottom: 0;
-        }
-
-        .dashboard-table tbody tr:hover td {
-            background: #FAFBFE;
-        }
-
-        .dashboard-item-name {
-            color: var(--navy);
-            font-weight: 650;
-        }
-
-        .dashboard-category {
-            display: inline-block;
-            padding: 6px 9px;
-            border-radius: 8px;
-            background: #EEF1F8;
-            color: #43577F;
-            font-size: .78rem;
-            font-weight: 600;
-        }
-
-        .dashboard-status {
-            display: inline-block;
-            border-radius: 999px;
+        .badge-type {
+            background: #f4edd9;
+            color: #806019;
             padding: 7px 10px;
-            font-size: .76rem;
-            font-weight: 700;
-            white-space: nowrap;
+            border-radius: 20px;
         }
 
-        @media (max-width: 575.98px) {
+        .badge-bought {
+            background: #dff5e8;
+            color: #167343;
+        }
 
-            .dashboard-panel-heading,
-            .dashboard-panel-body {
-                padding-left: 18px;
-                padding-right: 18px;
+        .badge-not-bought {
+            background: #fff0d5;
+            color: #96610b;
+        }
+
+        .progress {
+            height: 9px;
+            background: #e9edf4;
+        }
+
+        .progress-bar {
+            background: var(--gold);
+        }
+
+        .section-link {
+            color: #9b791f;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        .section-link:hover {
+            text-decoration: underline;
+        }
+
+        .empty-state {
+            color: var(--muted);
+            text-align: center;
+            padding: 28px 10px;
+        }
+
+        @media (max-width: 600px) {
+            .page-container {
+                padding: 22px 13px 35px;
             }
 
-            .dashboard-chart {
-                height: 240px;
+            .panel {
+                padding: 16px;
+            }
+
+            .stat-card {
+                padding: 17px;
+            }
+
+            .stat-number {
+                font-size: 23px;
+            }
+
+            .nav-link-custom {
+                margin-left: 10px;
             }
         }
     </style>
@@ -246,494 +371,297 @@ $query_pengeluaran_terbaru = mysqli_query($koneksi, "
 
 <body>
 
-    <nav class="navbar navbar-expand-lg wishlist-navbar">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="../index/index.php">
-                Wishlist
-            </a>
+<nav class="app-navbar">
+    <div class="container d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <a class="brand" href="index.php">Wishlist <span></span></a>
 
-            <button
-                class="navbar-toggler"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#navbarWishlist"
-                aria-controls="navbarWishlist"
-                aria-expanded="false"
-                aria-label="Buka navigasi">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+        <div class="d-flex align-items-center flex-wrap">
+            <a class="nav-link-custom active" href="index.php">Dashboard</a>
+            <a class="nav-link-custom" href="daftar.php">Daftar Barang</a>
+            <a class="nav-link-custom" href="../pengeluaran/pengeluaran.php">Pengeluaran</a>
+        </div>
+    </div>
+</nav>
 
-            <div class="collapse navbar-collapse" id="navbarWishlist">
-                <ul class="navbar-nav ms-auto gap-lg-2">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="../index/index.php">
-                            Dashboard
-                        </a>
-                    </li>
+<main class="page-container">
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="../index/daftar.php">
-                            Daftar Barang
-                        </a>
-                    </li>
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="welcome-title">Dashboard</h1>
+            <p class="muted mb-0">Pantau kebutuhan, keinginan, dan pengeluaranmu.</p>
+        </div>
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="../pengeluaran/pengeluaran.php">
-                            Pengeluaran
-                        </a>
-                    </li>
-                </ul>
+        <a href="tambah.php" class="btn btn-gold px-4 py-2">
+            + Tambah Barang
+        </a>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Barang Aktif</div>
+                        <div class="stat-number"><?= $total_barang ?></div>
+                    </div>
+                    <div class="stat-icon">📦</div>
+                </div>
+                <small class="muted">Belum dicatat sebagai pengeluaran</small>
             </div>
         </div>
-    </nav>
 
-    <main class="container dashboard-page">
-
-        <header class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-            <div>
-                <p class="text-uppercase small fw-bold mb-1"
-                    style="color: var(--gold);">
-                    Ringkasan wishlist
-                </p>
-
-                <h1 class="fw-bold mb-1">Dashboard</h1>
-
-                <p class="dashboard-subtitle">
-                    Kelola barang impian dan pantau pengeluaranmu.
-                </p>
-            </div>
-
-            <div class="d-flex gap-2 flex-wrap">
-                <a href="daftar.php" class="btn btn-primary">
-                    Lihat Daftar Barang
-                </a>
-
-                <a href="../pengeluaran/pengeluaran.php"
-                    class="btn btn-outline-primary">
-                    + Catat Pengeluaran
-                </a>
-            </div>
-        </header>
-
-        <!-- Statistik barang -->
-        <section class="row g-3 mb-4" aria-label="Ringkasan barang">
-
-            <div class="col-sm-6 col-xl-4">
-                <div class="dashboard-stat-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center gap-3 mb-3">
-                            <div class="dashboard-stat-icon">▤</div>
-                            <p class="text-secondary mb-0">Total Barang</p>
-                        </div>
-
-                        <div class="dashboard-stat-value">
-                            <?= $total_barang ?>
-                        </div>
-
-                        <small class="text-secondary">
-                            Seluruh daftar wishlist
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-sm-6 col-xl-4">
-                <div class="dashboard-stat-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center gap-3 mb-3">
-                            <div class="dashboard-stat-icon green">✓</div>
-                            <p class="text-secondary mb-0">Sudah Dibeli</p>
-                        </div>
-
-                        <div class="dashboard-stat-value">
-                            <?= $sudah_dibeli ?>
-                        </div>
-
-                        <small class="text-secondary">
-                            Barang yang sudah dimiliki
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-sm-6 col-xl-4">
-                <div class="dashboard-stat-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center gap-3 mb-3">
-                            <div class="dashboard-stat-icon gold">◷</div>
-                            <p class="text-secondary mb-0">Belum Dibeli</p>
-                        </div>
-
-                        <div class="dashboard-stat-value">
-                            <?= $belum_dibeli ?>
-                        </div>
-
-                        <small class="text-secondary">
-                            Barang yang masih diinginkan
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-        </section>
-
-        <!-- Progres wishlist -->
-        <section class="dashboard-panel mb-4">
-            <div class="dashboard-panel-body">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
                     <div>
-                        <h2 class="h5 fw-bold mb-1">Progres Wishlist</h2>
-                        <p class="text-secondary small mb-0">
-                            Persentase barang yang sudah dibeli
-                        </p>
+                        <div class="stat-label">Kebutuhan</div>
+                        <div class="stat-number"><?= $total_kebutuhan ?></div>
                     </div>
-
-                    <span class="fw-bold" style="color: var(--navy);">
-                        <?= $persentase_progres ?>%
-                    </span>
+                    <div class="stat-icon">🎯</div>
                 </div>
+                <small class="muted">Barang kategori kebutuhan</small>
+            </div>
+        </div>
 
-                <div
-                    class="progress dashboard-progress"
-                    role="progressbar"
-                    aria-valuenow="<?= $persentase_progres ?>"
-                    aria-valuemin="0"
-                    aria-valuemax="100">
-
-                    <div
-                        class="progress-bar"
-                        style="width: <?= (int) $persentase_progres ?>%; background-color: #253C6D;">
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Keinginan</div>
+                        <div class="stat-number"><?= $total_keinginan ?></div>
                     </div>
+                    <div class="stat-icon">⭐</div>
                 </div>
+                <small class="muted">Barang kategori keinginan</small>
+            </div>
+        </div>
 
-                <p class="small text-secondary mt-2 mb-0">
-                    <?= $sudah_dibeli ?> dari <?= $total_barang ?> barang sudah dibeli.
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Belum Dibeli</div>
+                        <div class="stat-number"><?= $belum_dibeli ?></div>
+                    </div>
+                    <div class="stat-icon">🛒</div>
+                </div>
+                <small class="muted">Masih ada di daftar aktif</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-lg-7">
+            <div class="panel h-100">
+                <h2 class="panel-title mb-2">Progres Pembelian</h2>
+                <p class="muted small mb-3">
+                    Barang yang sudah dibeli dan belum dicatat sebagai pengeluaran.
                 </p>
-            </div>
-        </section>
 
-        <!-- Statistik pengeluaran -->
-        <section class="row g-3 mb-4" aria-label="Ringkasan pengeluaran">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="fw-semibold">Progres</span>
+                    <span class="fw-bold"><?= $persentase ?>%</span>
+                </div>
 
-            <div class="col-md-6">
-                <div class="dashboard-stat-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center gap-3 mb-3">
-                            <div class="dashboard-stat-icon gold">Rp</div>
+                <div class="progress mb-3">
+                    <div class="progress-bar" role="progressbar"
+                         style="width: <?= $persentase ?>%"
+                         aria-valuenow="<?= $persentase ?>"
+                         aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
 
-                            <div>
-                                <p class="text-secondary mb-1">
-                                    Pengeluaran Minggu Ini
-                                </p>
-                                <small class="text-secondary">
-                                    Akumulasi minggu berjalan
-                                </small>
-                            </div>
-                        </div>
-
-                        <div class="dashboard-stat-value">
-                            Rp <?= number_format((float) $total_minggu, 0, ',', '.') ?>
-                        </div>
-                    </div>
+                <div class="d-flex justify-content-between flex-wrap gap-2 small">
+                    <span class="muted">Sudah dibeli: <strong><?= $sudah_dibeli ?></strong></span>
+                    <span class="muted">Belum dibeli: <strong><?= $belum_dibeli ?></strong></span>
                 </div>
             </div>
+        </div>
 
-            <div class="col-md-6">
-                <div class="dashboard-stat-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center gap-3 mb-3">
-                            <div class="dashboard-stat-icon">▤</div>
+        <div class="col-lg-5">
+            <div class="panel h-100">
+                <h2 class="panel-title mb-3">Ringkasan Pengeluaran</h2>
 
-                            <div>
-                                <p class="text-secondary mb-1">
-                                    Pengeluaran Bulan Ini
-                                </p>
-                                <small class="text-secondary">
-                                    Akumulasi bulan berjalan
-                                </small>
-                            </div>
-                        </div>
-
-                        <div class="dashboard-stat-value">
-                            Rp <?= number_format((float) $total_bulan, 0, ',', '.') ?>
-                        </div>
+                <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                    <div>
+                        <div class="muted small">Pengeluaran minggu ini</div>
+                        <div class="fw-bold fs-5">Rp <?= number_format($total_minggu, 0, ",", ".") ?></div>
                     </div>
+                    <span class="stat-icon">📅</span>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center py-3">
+                    <div>
+                        <div class="muted small">Pengeluaran bulan ini</div>
+                        <div class="fw-bold fs-5">Rp <?= number_format($total_bulan, 0, ",", ".") ?></div>
+                    </div>
+                    <span class="stat-icon">💰</span>
+                </div>
+
+                <a href="../pengeluaran/pengeluaran.php" class="section-link">
+                    Lihat semua pengeluaran →
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+                <h2 class="panel-title">Grafik Pengeluaran</h2>
+                <p class="muted small mb-0">Pengeluaran selama 7 hari terakhir.</p>
+            </div>
+        </div>
+        <div style="height: 280px;">
+            <canvas id="grafikPengeluaran"></canvas>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+                <h2 class="panel-title">Daftar Barang Aktif</h2>
+                <p class="muted small mb-0">Barang yang belum dicatat dalam pengeluaran.</p>
+            </div>
+            <a href="daftar.php" class="section-link">Lihat semua →</a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nama Barang</th>
+                        <th>Jenis</th>
+                        <th>Kategori</th>
+                        <th>Harga</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php if (mysqli_num_rows($query_barang) > 0): ?>
+                    <?php while ($barang = mysqli_fetch_assoc($query_barang)): ?>
+                        <tr>
+                            <td class="fw-semibold"><?= aman($barang["nama_barang"]) ?></td>
+                            <td>
+                                <span class="badge badge-type"><?= aman($barang["jenis"] ?? "Keinginan") ?></span>
+                            </td>
+                            <td><?= aman($barang["kategori"]) ?></td>
+                            <td>Rp <?= number_format((float)$barang["harga"], 0, ",", ".") ?></td>
+                            <td>
+                                <?php if ($barang["status"] === "Sudah Dibeli"): ?>
+                                    <span class="badge badge-bought">Sudah Dibeli</span>
+                                <?php else: ?>
+                                    <span class="badge badge-not-bought">Belum Dibeli</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            Belum ada barang aktif. Kamu bisa menambah barang baru.
+                        </td>
+                    </tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="panel">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <h2 class="panel-title">Pengeluaran Terbaru</h2>
+                    <a href="../pengeluaran/pengeluaran.php" class="section-link">Lihat semua →</a>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Nama Pengeluaran</th>
+                                <th>Barang Terkait</th>
+                                <th>Jumlah</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php if (mysqli_num_rows($query_pengeluaran) > 0): ?>
+                            <?php while ($pengeluaran = mysqli_fetch_assoc($query_pengeluaran)): ?>
+                                <tr>
+                                    <td><?= aman(date("d/m/Y", strtotime($pengeluaran["tanggal_pengeluaran"]))) ?></td>
+                                    <td class="fw-semibold"><?= aman($pengeluaran["nama_pengeluaran"]) ?></td>
+                                    <td><?= aman($pengeluaran["nama_barang"] ?: "-") ?></td>
+                                    <td class="fw-semibold">Rp <?= number_format((float)$pengeluaran["jumlah"], 0, ",", ".") ?></td>
+                                </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="4" class="empty-state">Belum ada catatan pengeluaran.</td>
+                            </tr>
+                        <?php endif; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
+        </div>
+    </div>
 
-        </section>
+    <footer class="text-center muted small mt-4">
+        Wishlist PJK &copy; <?= date("Y") ?>
+    </footer>
+</main>
 
-        <!-- Grafik -->
-        <section class="dashboard-panel mb-4" aria-labelledby="chartTitle">
-            <div class="dashboard-panel-heading">
-                <h2 id="chartTitle" class="h5 fw-bold mb-1">
-                    Grafik Pengeluaran
-                </h2>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const labelGrafik = <?= json_encode($label_grafik) ?>;
+const nilaiGrafik = <?= json_encode($nilai_grafik) ?>;
 
-                <p class="text-secondary small mb-0">
-                    Pengeluaran selama 7 hari terakhir
-                </p>
-            </div>
-
-            <div class="dashboard-panel-body">
-                <div class="dashboard-chart">
-                    <canvas id="grafikPengeluaran"></canvas>
-                </div>
-            </div>
-        </section>
-
-        <!-- Tabel barang dan pengeluaran terbaru -->
-        <section class="row g-4">
-
-            <div class="col-xl-7">
-                <div class="dashboard-panel">
-
-                    <div class="dashboard-panel-heading d-flex justify-content-between align-items-center gap-3">
-                        <div>
-                            <h2 class="h5 fw-bold mb-1">Daftar Barang</h2>
-                            <p class="text-secondary small mb-0">
-                                Barang wishlist terbaru
-                            </p>
-                        </div>
-
-                        <a href="daftar.php"
-                            class="btn btn-sm btn-outline-primary">
-                            Lihat Semua
-                        </a>
-                    </div>
-
-                    <div class="dashboard-panel-body">
-                        <div class="table-responsive">
-
-                            <table class="table table-hover align-middle wishlist-table dashboard-table">
-                                <thead>
-                                    <tr>
-                                        <th>No.</th>
-                                        <th>Nama Barang</th>
-                                        <th>Kategori</th>
-                                        <th>Harga</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-
-                                <tbody>
-                                    <?php if (mysqli_num_rows($query_barang) > 0): ?>
-                                        <?php $no = 1; ?>
-
-                                        <?php while ($barang = mysqli_fetch_assoc($query_barang)): ?>
-                                            <tr>
-                                                <td><?= $no++ ?></td>
-
-                                                <td class="dashboard-item-name">
-                                                    <?= htmlspecialchars(
-                                                        $barang['nama_barang'] ?? '-',
-                                                        ENT_QUOTES,
-                                                        'UTF-8'
-                                                    ) ?>
-                                                </td>
-
-                                                <td>
-                                                    <span class="dashboard-category">
-                                                        <?= htmlspecialchars(
-                                                            $barang['kategori'] ?? 'Tanpa kategori',
-                                                            ENT_QUOTES,
-                                                            'UTF-8'
-                                                        ) ?>
-                                                    </span>
-                                                </td>
-
-                                                <td class="text-nowrap">
-                                                    Rp <?= number_format(
-                                                            (float) $barang['harga'],
-                                                            0,
-                                                            ',',
-                                                            '.'
-                                                        ) ?>
-                                                </td>
-
-                                                <td>
-                                                    <?php if ($barang['status'] === 'Sudah Dibeli'): ?>
-                                                        <span
-                                                            class="dashboard-status"
-                                                            style="background:#E5F5EB;color:#237447;">
-                                                            ✓ Sudah Dibeli
-                                                        </span>
-                                                    <?php else: ?>
-                                                        <span
-                                                            class="dashboard-status"
-                                                            style="background:#FFF3D9;color:#936713;">
-                                                            ◷ Belum Dibeli
-                                                        </span>
-                                                    <?php endif; ?>
-                                                </td>
-                                            </tr>
-                                        <?php endwhile; ?>
-
-                                    <?php else: ?>
-                                        <tr>
-                                            <td colspan="5"
-                                                class="text-center text-secondary py-4">
-                                                Belum ada barang. Tambahkan barang melalui halaman Daftar Barang.
-                                            </td>
-                                        </tr>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-xl-5">
-                <div class="dashboard-panel">
-
-                    <div class="dashboard-panel-heading d-flex justify-content-between align-items-center gap-3">
-                        <div>
-                            <h2 class="h5 fw-bold mb-1">
-                                Pengeluaran Terbaru
-                            </h2>
-
-                            <p class="text-secondary small mb-0">
-                                Catatan pengeluaran terakhir
-                            </p>
-                        </div>
-
-                        <a
-                            href="../pengeluaran/pengeluaran.php"
-                            class="btn btn-sm btn-outline-primary">
-                            Lihat Semua
-                        </a>
-                    </div>
-
-                    <div class="dashboard-panel-body">
-                        <div class="table-responsive">
-
-                            <table class="table align-middle dashboard-table">
-                                <thead>
-                                    <tr>
-                                        <th>Tanggal</th>
-                                        <th>Keterangan</th>
-                                        <th>Jumlah</th>
-                                    </tr>
-                                </thead>
-
-                                <tbody>
-                                    <?php if (mysqli_num_rows($query_pengeluaran_terbaru) > 0): ?>
-                                        <?php while ($pengeluaran = mysqli_fetch_assoc($query_pengeluaran_terbaru)): ?>
-                                            <tr>
-                                                <td class="text-nowrap text-secondary small">
-                                                    <?= htmlspecialchars(
-                                                        $pengeluaran['tanggal_pengeluaran'],
-                                                        ENT_QUOTES,
-                                                        'UTF-8'
-                                                    ) ?>
-                                                </td>
-
-                                                <td class="fw-semibold">
-                                                    <?= htmlspecialchars(
-                                                        $pengeluaran['nama_pengeluaran'],
-                                                        ENT_QUOTES,
-                                                        'UTF-8'
-                                                    ) ?>
-                                                </td>
-
-                                                <td class="text-nowrap fw-bold"
-                                                    style="color: var(--navy);">
-                                                    Rp <?= number_format(
-                                                            (float) $pengeluaran['jumlah'],
-                                                            0,
-                                                            ',',
-                                                            '.'
-                                                        ) ?>
-                                                </td>
-                                            </tr>
-                                        <?php endwhile; ?>
-
-                                    <?php else: ?>
-                                        <tr>
-                                            <td colspan="3"
-                                                class="text-center text-secondary py-4">
-                                                Belum ada data pengeluaran.
-                                            </td>
-                                        </tr>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </section>
-
-    </main>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <script>
-        const labelGrafik = <?= json_encode($label_grafik) ?>;
-        const dataGrafik = <?= json_encode($data_grafik) ?>;
-
-        const canvas = document.getElementById('grafikPengeluaran');
-
-        if (canvas) {
-            new Chart(canvas, {
-                type: 'bar',
-
-                data: {
-                    labels: labelGrafik,
-
-                    datasets: [{
-                        label: 'Pengeluaran (Rp)',
-                        data: dataGrafik,
-                        backgroundColor: 'rgba(37, 60, 109, 0.88)',
-                        borderColor: '#D6AE58',
-                        borderWidth: 1,
-                        borderRadius: 6
-                    }]
-                },
-
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-
-                    scales: {
-                        x: {
-                            grid: {
-                                display: false
-                            },
-
-                            ticks: {
-                                color: '#748096'
-                            }
-                        },
-
-                        y: {
-                            beginAtZero: true,
-
-                            grid: {
-                                color: '#E8EAF0'
-                            },
-
-                            ticks: {
-                                color: '#748096',
-
-                                callback: function(value) {
-                                    return 'Rp ' +
-                                        new Intl.NumberFormat('id-ID')
-                                        .format(value);
-                                }
-                            }
-                        }
+new Chart(document.getElementById("grafikPengeluaran"), {
+    type: "line",
+    data: {
+        labels: labelGrafik,
+        datasets: [{
+            label: "Pengeluaran (Rp)",
+            data: nilaiGrafik,
+            borderColor: "#d8b45a",
+            backgroundColor: "rgba(216, 180, 90, 0.15)",
+            fill: true,
+            tension: 0.35,
+            pointRadius: 4,
+            pointHoverRadius: 6
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return "Rp " + Number(context.raw).toLocaleString("id-ID");
                     }
                 }
-            });
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        return "Rp " + Number(value).toLocaleString("id-ID");
+                    }
+                },
+                grid: { color: "#edf0f5" }
+            },
+            x: {
+                grid: { display: false }
+            }
         }
-    </script>
+    }
+});
+</script>
 
 </body>
-
 </html>

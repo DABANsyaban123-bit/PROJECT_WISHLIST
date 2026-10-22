@@ -79,7 +79,7 @@ $total_hasil = mysqli_num_rows($query_barang);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Daftar Barang | Wishlist PJK</title>
+    <title>Daftar Barang | Wishlist</title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
@@ -395,7 +395,7 @@ $total_hasil = mysqli_num_rows($query_barang);
 <nav class="navbar navbar-expand-lg wishlist-navbar">
     <div class="container py-1">
         <a class="navbar-brand fw-bold" href="index.php">
-            Wishlist <span style="color: var(--wishlist-gold)">PJK</span>
+            Wishlist <span style="color: var(--wishlist-gold)"></span>
         </a>
 
         <button

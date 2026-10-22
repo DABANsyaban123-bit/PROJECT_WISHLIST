@@ -278,7 +278,7 @@ if (!$query_pengeluaran) {
         <div class="container">
 
             <a class="navbar-brand fw-bold" href="../index/index.php">
-                Wishlist PJK
+                Wishlist
             </a>
 
             <button

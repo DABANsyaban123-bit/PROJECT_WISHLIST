@@ -29,7 +29,7 @@ try {
 
     if (!$pengeluaran) {
         mysqli_commit($koneksi);
-        header("Location: pengeluaran.php");
+        header("Location: pengeluaran.php?dihapus=1");
         exit;
     }
 

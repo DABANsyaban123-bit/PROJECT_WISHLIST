@@ -515,7 +515,7 @@ $query_error = "";
     <div class="page-heading">
         <div>
             <h1>Daftar Barang</h1>
-            <p>Kelola wishlist dan bedakan barang yang kamu butuhkan dengan yang kamu inginkan.</p>
+            <p>Barang yang sudah dicatat di pengeluaran otomatis berubah status dan selesai dari daftar aktif.</p>
         </div>
 
         <a href="tambah.php" class="btn btn-gold">

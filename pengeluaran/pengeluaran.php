@@ -349,6 +349,25 @@ if (!$query_pengeluaran) {
             </a>
         </header>
 
+        <?php if (($_GET["tersimpan"] ?? "") === "barang"): ?>
+            <div class="alert alert-success" role="status">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                Pengeluaran tersimpan. Status barang di wishlist otomatis berubah menjadi <strong>Sudah Dibeli</strong>.
+            </div>
+        <?php elseif (($_GET["tersimpan"] ?? "") === "umum"): ?>
+            <div class="alert alert-success" role="status">
+                <i class="bi bi-check-circle-fill me-2"></i>Pengeluaran berhasil ditambahkan.
+            </div>
+        <?php elseif (($_GET["diperbarui"] ?? "") === "1"): ?>
+            <div class="alert alert-success" role="status">
+                <i class="bi bi-check-circle-fill me-2"></i>Pengeluaran berhasil diperbarui.
+            </div>
+        <?php elseif (($_GET["dihapus"] ?? "") === "1"): ?>
+            <div class="alert alert-success" role="status">
+                <i class="bi bi-check-circle-fill me-2"></i>Pengeluaran berhasil dihapus. Barang terkait kembali ke daftar aktif.
+            </div>
+        <?php endif; ?>
+
         <!-- KARTU RINGKASAN -->
         <section class="row g-3 mb-4">
 

@@ -125,89 +125,89 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             if ($pesan_error === "") {
-            if ($id_barang === null) {
-                $update = mysqli_prepare($koneksi, "
-                    UPDATE pengeluaran
-                    SET id_barang = NULL,
-                        nama_pengeluaran = ?,
-                        jumlah = ?,
-                        tanggal_pengeluaran = ?,
-                        catatan = ?
-                    WHERE id_pengeluaran = ?
-                ");
+                if ($id_barang === null) {
+                    $update = mysqli_prepare($koneksi, "
+                        UPDATE pengeluaran
+                        SET id_barang = NULL,
+                            nama_pengeluaran = ?,
+                            jumlah = ?,
+                            tanggal_pengeluaran = ?,
+                            catatan = ?
+                        WHERE id_pengeluaran = ?
+                    ");
 
-                mysqli_stmt_bind_param(
-                    $update,
-                    "sdssi",
-                    $nama,
-                    $jumlah_input,
-                    $tanggal,
-                    $catatan,
-                    $id
-                );
-            } else {
-                $update = mysqli_prepare($koneksi, "
-                    UPDATE pengeluaran
-                    SET id_barang = ?,
-                        nama_pengeluaran = ?,
-                        jumlah = ?,
-                        tanggal_pengeluaran = ?,
-                        catatan = ?
-                    WHERE id_pengeluaran = ?
-                ");
-
-                mysqli_stmt_bind_param(
-                    $update,
-                    "isdssi",
-                    $id_barang,
-                    $nama,
-                    $jumlah_input,
-                    $tanggal,
-                    $catatan,
-                    $id
-                );
-            }
-
-            if (mysqli_stmt_execute($update)) {
-                mysqli_stmt_close($update);
-                if ($id_barang !== null) {
-                    $status_baru = mysqli_prepare(
-                        $koneksi,
-                        "UPDATE barang SET status = 'Sudah Dibeli' WHERE id_barang = ?"
+                    mysqli_stmt_bind_param(
+                        $update,
+                        "sdssi",
+                        $nama,
+                        $jumlah_input,
+                        $tanggal,
+                        $catatan,
+                        $id
                     );
-                    mysqli_stmt_bind_param($status_baru, "i", $id_barang);
-                    mysqli_stmt_execute($status_baru);
-                    mysqli_stmt_close($status_baru);
+                } else {
+                    $update = mysqli_prepare($koneksi, "
+                        UPDATE pengeluaran
+                        SET id_barang = ?,
+                            nama_pengeluaran = ?,
+                            jumlah = ?,
+                            tanggal_pengeluaran = ?,
+                            catatan = ?
+                        WHERE id_pengeluaran = ?
+                    ");
+
+                    mysqli_stmt_bind_param(
+                        $update,
+                        "isdssi",
+                        $id_barang,
+                        $nama,
+                        $jumlah_input,
+                        $tanggal,
+                        $catatan,
+                        $id
+                    );
                 }
 
-                if ($id_barang_lama !== null && $id_barang_lama !== $id_barang) {
-                    $cek_pengeluaran_lain = mysqli_prepare(
-                        $koneksi,
-                        "SELECT id_pengeluaran FROM pengeluaran WHERE id_barang = ? LIMIT 1"
-                    );
-                    mysqli_stmt_bind_param($cek_pengeluaran_lain, "i", $id_barang_lama);
-                    mysqli_stmt_execute($cek_pengeluaran_lain);
-                    $masih_dipakai = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_pengeluaran_lain)) !== null;
-                    mysqli_stmt_close($cek_pengeluaran_lain);
-
-                    if (!$masih_dipakai) {
-                        $status_lama = mysqli_prepare(
+                if (mysqli_stmt_execute($update)) {
+                    mysqli_stmt_close($update);
+                    if ($id_barang !== null) {
+                        $status_baru = mysqli_prepare(
                             $koneksi,
-                            "UPDATE barang SET status = 'Belum Dibeli' WHERE id_barang = ?"
+                            "UPDATE barang SET status = 'Sudah Dibeli' WHERE id_barang = ?"
                         );
-                        mysqli_stmt_bind_param($status_lama, "i", $id_barang_lama);
-                        mysqli_stmt_execute($status_lama);
-                        mysqli_stmt_close($status_lama);
+                        mysqli_stmt_bind_param($status_baru, "i", $id_barang);
+                        mysqli_stmt_execute($status_baru);
+                        mysqli_stmt_close($status_baru);
                     }
+
+                    if ($id_barang_lama !== null && $id_barang_lama !== $id_barang) {
+                        $cek_pengeluaran_lain = mysqli_prepare(
+                            $koneksi,
+                            "SELECT id_pengeluaran FROM pengeluaran WHERE id_barang = ? LIMIT 1"
+                        );
+                        mysqli_stmt_bind_param($cek_pengeluaran_lain, "i", $id_barang_lama);
+                        mysqli_stmt_execute($cek_pengeluaran_lain);
+                        $masih_dipakai = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_pengeluaran_lain)) !== null;
+                        mysqli_stmt_close($cek_pengeluaran_lain);
+
+                        if (!$masih_dipakai) {
+                            $status_lama = mysqli_prepare(
+                                $koneksi,
+                                "UPDATE barang SET status = 'Belum Dibeli' WHERE id_barang = ?"
+                            );
+                            mysqli_stmt_bind_param($status_lama, "i", $id_barang_lama);
+                            mysqli_stmt_execute($status_lama);
+                            mysqli_stmt_close($status_lama);
+                        }
+                    }
+
+                    mysqli_commit($koneksi);
+                    header("Location: pengeluaran.php?diperbarui=1");
+                    exit;
                 }
 
-                mysqli_commit($koneksi);
-                header("Location: pengeluaran.php");
-                exit;
-            }
-
-            $pesan_error = "Gagal memperbarui data pengeluaran.";
-            mysqli_stmt_close($update);
+                $pesan_error = "Gagal memperbarui data pengeluaran.";
+                mysqli_stmt_close($update);
                 mysqli_rollback($koneksi);
             }
         } catch (mysqli_sql_exception | RuntimeException $exception) {

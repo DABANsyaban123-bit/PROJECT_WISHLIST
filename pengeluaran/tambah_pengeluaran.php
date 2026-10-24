@@ -200,7 +200,8 @@ if (!$query_barang) {
                         </div>
                     <?php endif; ?>
 
-                    <form method="POST" action="tambah_pengeluaran.php">
+                    <form method="POST" action="tambah_pengeluaran.php"
+                          data-purchase-form data-loading-form>
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
 
                         <div class="mb-3">
@@ -212,6 +213,7 @@ if (!$query_barang) {
                                 id="nama_pengeluaran"
                                 name="nama_pengeluaran"
                                 class="form-control"
+                                data-purchase-name
                                 maxlength="150"
                                 value="<?= htmlspecialchars($nama_pengeluaran, ENT_QUOTES, "UTF-8") ?>"
                                 placeholder="Contoh: Membeli tas ransel"
@@ -226,7 +228,8 @@ if (!$query_barang) {
                             <select
                                 id="id_barang"
                                 name="id_barang"
-                                class="form-select">
+                                class="form-select"
+                                data-purchase-item>
 
                                 <option value="">Catat pengeluaran tanpa mengaitkan barang</option>
 
@@ -256,6 +259,7 @@ if (!$query_barang) {
                                 id="jumlah"
                                 name="jumlah"
                                 class="form-control"
+                                data-purchase-amount
                                 min="0.01"
                                 step="0.01"
                                 value="<?= htmlspecialchars((string) $jumlah, ENT_QUOTES, "UTF-8") ?>"
@@ -309,30 +313,7 @@ if (!$query_barang) {
     </div>
 </div>
 
-<script>
-    const pilihanBarang = document.getElementById("id_barang");
-    const inputNama = document.getElementById("nama_pengeluaran");
-    const inputJumlah = document.getElementById("jumlah");
-
-    pilihanBarang.addEventListener("change", function () {
-        const option = this.options[this.selectedIndex];
-
-        if (!option.value) {
-            return;
-        }
-
-        const nama = option.dataset.nama || "";
-        const harga = option.dataset.harga || "";
-
-        if (nama !== "") {
-            inputNama.value = "Pembelian " + nama;
-        }
-
-        if (harga !== "") {
-            inputJumlah.value = harga;
-        }
-    });
-</script>
+<script src="../app.js" defer></script>
 
 </body>
 </html>

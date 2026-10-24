@@ -57,6 +57,7 @@ $query_kebutuhan = mysqli_query($koneksi, "
     SELECT b.*
     FROM barang b
     WHERE b.jenis = 'Kebutuhan'
+      AND b.status = 'Belum Dibeli'
       AND NOT EXISTS (
           SELECT 1
           FROM pengeluaran p
@@ -70,6 +71,7 @@ $query_keinginan = mysqli_query($koneksi, "
     SELECT b.*
     FROM barang b
     WHERE b.jenis = 'Keinginan'
+      AND b.status = 'Belum Dibeli'
       AND NOT EXISTS (
           SELECT 1
           FROM pengeluaran p
@@ -644,7 +646,7 @@ for ($i = 6; $i >= 0; $i--) {
 
     <section class="panel">
         <div class="panel-heading">
-            <h5><i class="bi bi-shield-check me-2"></i>Daftar Kebutuhan</h5>
+            <h5><i class="bi bi-shield-check me-2"></i>Prioritas Kebutuhan</h5>
             <a href="daftar.php?jenis=Kebutuhan">Lihat semua</a>
         </div>
 
@@ -673,7 +675,7 @@ for ($i = 6; $i >= 0; $i--) {
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="4" class="empty-state">Belum ada kebutuhan aktif.</td></tr>
+                    <tr><td colspan="4" class="empty-state">Tidak ada kebutuhan yang belum dibeli. Lihat status lengkap di <a href="daftar.php">daftar barang</a>.</td></tr>
                 <?php endif; ?>
                 </tbody>
             </table>
@@ -711,7 +713,7 @@ for ($i = 6; $i >= 0; $i--) {
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="4" class="empty-state">Belum ada keinginan aktif.</td></tr>
+                    <tr><td colspan="4" class="empty-state">Tidak ada keinginan yang belum dibeli. Lihat status lengkap di <a href="daftar.php">daftar barang</a>.</td></tr>
                 <?php endif; ?>
                 </tbody>
             </table>
@@ -758,6 +760,7 @@ for ($i = 6; $i >= 0; $i--) {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="../app.js" defer></script>
 <script>
 const labelGrafik = <?= json_encode($label_grafik) ?>;
 const nilaiGrafik = <?= json_encode($nilai_grafik) ?>;

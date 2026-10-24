@@ -28,15 +28,10 @@ if (!in_array($status, $status_valid, true)) {
     $status = "";
 }
 
-// Hanya barang aktif yang belum dihubungkan dengan pengeluaran.
 $sql = "
     SELECT b.*
     FROM barang b
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM pengeluaran p
-        WHERE p.id_barang = b.id_barang
-    )
+    WHERE 1 = 1
 ";
 
 $conditions = [];
@@ -114,17 +109,12 @@ $total_belum = (int) $stat["belum"];
 $total_kebutuhan = (int) $stat["kebutuhan"];
 $total_keinginan = (int) $stat["keinginan"];
 
-// Kategori yang masih mempunyai barang aktif.
+// Kategori yang terdaftar pada semua barang.
 $query_kategori = mysqli_query($koneksi, "
     SELECT DISTINCT b.kategori
     FROM barang b
     WHERE b.kategori IS NOT NULL
       AND b.kategori <> ''
-      AND NOT EXISTS (
-          SELECT 1
-          FROM pengeluaran p
-          WHERE p.id_barang = b.id_barang
-      )
     ORDER BY b.kategori ASC
 ");
 
@@ -515,7 +505,7 @@ $query_error = "";
     <div class="page-heading">
         <div>
             <h1>Daftar Barang</h1>
-            <p>Ringkasan mencakup semua barang; daftar di bawah hanya menampilkan barang yang belum dicatat di pengeluaran.</p>
+            <p>Lihat semua barang dan statusnya. Barang yang dicatat di pengeluaran akan otomatis ditandai sudah dibeli.</p>
         </div>
 
         <a href="tambah.php" class="btn btn-gold">
@@ -565,24 +555,28 @@ $query_error = "";
         </div>
     </div>
 
-    <section class="panel">
+    <section class="panel item-filter-panel">
         <div class="panel-heading">
-            <h5><i class="bi bi-funnel me-2"></i>Filter Barang</h5>
+            <div>
+                <h5><i class="bi bi-funnel me-2"></i>Filter Barang</h5>
+                <p class="text-secondary small mb-0">Cari dan saring daftar tanpa perlu memuat ulang halaman.</p>
+            </div>
         </div>
 
-        <form action="daftar.php" method="GET">
+        <form action="daftar.php" method="GET" id="filterBarangForm" data-live-filter>
             <div class="row g-3 align-items-end">
 
                 <div class="col-lg-4 col-md-6">
                     <label class="filter-label" for="cari">Cari nama barang</label>
                     <input type="text" class="form-control" id="cari"
-                           name="cari" placeholder="Contoh: Tas, Laptop..."
+                           name="cari" placeholder="Contoh: Jersey, Laptop..."
+                           data-filter-search
                            value="<?= e($cari) ?>">
                 </div>
 
                 <div class="col-lg-2 col-md-6">
                     <label class="filter-label" for="jenis">Jenis</label>
-                    <select class="form-select" id="jenis" name="jenis">
+                    <select class="form-select" id="jenis" name="jenis" data-filter-select>
                         <option value="">Semua jenis</option>
                         <option value="Kebutuhan" <?= $jenis_filter === "Kebutuhan" ? "selected" : "" ?>>
                             Kebutuhan
@@ -595,7 +589,7 @@ $query_error = "";
 
                 <div class="col-lg-2 col-md-6">
                     <label class="filter-label" for="kategori">Kategori</label>
-                    <select class="form-select" id="kategori" name="kategori">
+                    <select class="form-select" id="kategori" name="kategori" data-filter-select>
                         <option value="">Semua kategori</option>
                         <?php while ($kat = mysqli_fetch_assoc($query_kategori)): ?>
                             <option value="<?= e($kat["kategori"]) ?>"
@@ -608,7 +602,7 @@ $query_error = "";
 
                 <div class="col-lg-2 col-md-6">
                     <label class="filter-label" for="status">Status</label>
-                    <select class="form-select" id="status" name="status">
+                    <select class="form-select" id="status" name="status" data-filter-select>
                         <option value="">Semua status</option>
                         <option value="Belum Dibeli" <?= $status === "Belum Dibeli" ? "selected" : "" ?>>
                             Belum Dibeli
@@ -620,15 +614,16 @@ $query_error = "";
                 </div>
 
                 <div class="col-lg-2 col-md-12 d-flex gap-2">
-                    <button type="submit" class="btn btn-filter flex-grow-1">
+                    <button type="submit" class="btn btn-filter flex-grow-1" data-filter-submit>
                         <i class="bi bi-search me-1"></i> Cari
                     </button>
-                    <a href="daftar.php" class="btn btn-reset" title="Reset filter">
+                    <a href="daftar.php" class="btn btn-reset" title="Reset filter" data-filter-reset>
                         <i class="bi bi-arrow-counterclockwise"></i>
                     </a>
                 </div>
 
             </div>
+            <div class="filter-feedback mt-3 small text-secondary" aria-live="polite" data-filter-feedback></div>
         </form>
     </section>
 
@@ -641,14 +636,14 @@ $query_error = "";
                 </div>
                 <div>
                     <h5>Daftar Kebutuhan</h5>
-                    <p>Barang yang kamu prioritaskan untuk dimiliki.</p>
+                    <p>Barang penting beserta status pembeliannya.</p>
                 </div>
             </div>
             <span class="section-count"><?= count($kebutuhan) ?> barang</span>
         </div>
 
         <div class="table-responsive">
-            <table class="table">
+            <table class="table item-table" data-filter-table>
                 <thead>
                     <tr>
                         <th>No.</th>
@@ -663,7 +658,10 @@ $query_error = "";
                 <tbody>
                 <?php if (count($kebutuhan) > 0): ?>
                     <?php foreach ($kebutuhan as $i => $barang): ?>
-                        <tr>
+                        <tr data-filter-row
+                            data-kind="<?= e($barang["jenis"]) ?>"
+                            data-category="<?= e($barang["kategori"]) ?>"
+                            data-status="<?= e($barang["status"]) ?>">
                             <td><?= $i + 1 ?></td>
                             <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
                             <td><?= e($barang["kategori"]) ?></td>
@@ -698,6 +696,9 @@ $query_error = "";
                         </td>
                     </tr>
                 <?php endif; ?>
+                    <tr class="filter-no-results d-none">
+                        <td colspan="6" class="empty-state">Tidak ada barang yang cocok dengan filter.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -719,7 +720,7 @@ $query_error = "";
         </div>
 
         <div class="table-responsive">
-            <table class="table">
+            <table class="table item-table" data-filter-table>
                 <thead>
                     <tr>
                         <th>No.</th>
@@ -734,7 +735,10 @@ $query_error = "";
                 <tbody>
                 <?php if (count($keinginan) > 0): ?>
                     <?php foreach ($keinginan as $i => $barang): ?>
-                        <tr>
+                        <tr data-filter-row
+                            data-kind="<?= e($barang["jenis"]) ?>"
+                            data-category="<?= e($barang["kategori"]) ?>"
+                            data-status="<?= e($barang["status"]) ?>">
                             <td><?= $i + 1 ?></td>
                             <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
                             <td><?= e($barang["kategori"]) ?></td>
@@ -769,17 +773,21 @@ $query_error = "";
                         </td>
                     </tr>
                 <?php endif; ?>
+                    <tr class="filter-no-results d-none">
+                        <td colspan="6" class="empty-state">Tidak ada barang yang cocok dengan filter.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </section>
 
     <div class="footer-note">
-        Wishlist PJK &mdash; Barang yang sudah dicatat sebagai pengeluaran tidak ditampilkan lagi di wishlist aktif.
+        Wishlist PJK &mdash; Barang yang dicatat sebagai pengeluaran tetap terlihat di sini dengan status Sudah Dibeli.
     </div>
 
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../app.js" defer></script>
 </body>
 </html>

@@ -1,5 +1,7 @@
 <?php
 include_once __DIR__ . "/../config.php";
+require_once __DIR__ . "/../auth.php";
+auth_require_login();
 
 $id = filter_input(INPUT_GET, "id", FILTER_VALIDATE_INT);
 
@@ -158,6 +160,7 @@ $query_barang = mysqli_query(
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
         rel="stylesheet">
+    <link rel="stylesheet" href="../UI.css">
 </head>
 
 <body class="bg-light">
@@ -179,6 +182,7 @@ $query_barang = mysqli_query(
 
                         <div class="expense-form-card">
                             <form method="POST">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
                                 <div class="mb-3">
                                     <label class="form-label">Nama Pengeluaran</label>
                                     <input

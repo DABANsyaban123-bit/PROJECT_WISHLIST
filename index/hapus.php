@@ -1,6 +1,13 @@
 
 <?php
 include_once __DIR__ . "/../config.php";
+require_once __DIR__ . "/../auth.php";
+auth_require_login();
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST" || !auth_verify_csrf($_POST["csrf_token"] ?? null)) {
+    http_response_code(400);
+    exit("Permintaan penghapusan tidak valid.");
+}
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     header("Location: index.php");

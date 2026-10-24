@@ -14,14 +14,19 @@ $catatan = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $id_barang_raw = $_POST["id_barang"] ?? "";
+    $id_barang_raw = is_string($id_barang_raw) ? $id_barang_raw : "";
     $id_barang = $id_barang_raw !== ""
         ? filter_var($id_barang_raw, FILTER_VALIDATE_INT)
         : null;
 
-    $nama_pengeluaran = trim($_POST["nama_pengeluaran"] ?? "");
-    $jumlah = $_POST["jumlah"] ?? "";
-    $tanggal_pengeluaran = $_POST["tanggal_pengeluaran"] ?? "";
-    $catatan = trim($_POST["catatan"] ?? "");
+    $nama_input = $_POST["nama_pengeluaran"] ?? "";
+    $jumlah_input = $_POST["jumlah"] ?? "";
+    $tanggal_input = $_POST["tanggal_pengeluaran"] ?? "";
+    $catatan_input = $_POST["catatan"] ?? "";
+    $nama_pengeluaran = is_string($nama_input) ? trim($nama_input) : "";
+    $jumlah = is_string($jumlah_input) ? $jumlah_input : "";
+    $tanggal_pengeluaran = is_string($tanggal_input) ? $tanggal_input : "";
+    $catatan = is_string($catatan_input) ? trim($catatan_input) : "";
     $id_barang_form = $id_barang_raw;
 
     $tanggal_valid = DateTime::createFromFormat(
@@ -46,42 +51,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             ? "Periksa kembali nama, jumlah, tanggal, dan data lainnya."
             : "Sesi formulir kedaluwarsa. Silakan muat ulang halaman.";
     } else {
-        $boleh_simpan = true;
+        try {
+            mysqli_begin_transaction($koneksi);
 
-        // Jika barang dipilih, pastikan barang sudah dibeli
-        // dan belum pernah dicatat dalam pengeluaran.
-        if ($id_barang !== null) {
-            $stmt_cek = mysqli_prepare(
-                $koneksi,
-                "SELECT b.id_barang
-                 FROM barang b
-                 WHERE b.id_barang = ?
-                   AND b.status = 'Sudah Dibeli'
-                   AND NOT EXISTS (
-                       SELECT 1
-                       FROM pengeluaran p
-                       WHERE p.id_barang = b.id_barang
-                   )
-                 LIMIT 1"
-            );
-
-            mysqli_stmt_bind_param($stmt_cek, "i", $id_barang);
-            mysqli_stmt_execute($stmt_cek);
-
-            $hasil_cek = mysqli_stmt_get_result($stmt_cek);
-            $barang_valid = mysqli_fetch_assoc($hasil_cek);
-
-            mysqli_stmt_close($stmt_cek);
-
-            if (!$barang_valid) {
-                $boleh_simpan = false;
-                $pesan_error =
-                    "Barang tidak tersedia. Pastikan statusnya Sudah Dibeli "
-                    . "dan belum memiliki catatan pengeluaran.";
-            }
-        }
-
-        if ($boleh_simpan) {
             if ($id_barang === null) {
                 $stmt = mysqli_prepare(
                     $koneksi,
@@ -100,44 +72,89 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $catatan
                 );
             } else {
-                $stmt = mysqli_prepare(
+                $stmt_cek = mysqli_prepare(
                     $koneksi,
-                    "INSERT INTO pengeluaran
-                        (id_barang, nama_pengeluaran, jumlah,
-                         tanggal_pengeluaran, catatan)
-                     VALUES (?, ?, ?, ?, ?)"
+                    "SELECT id_barang FROM barang WHERE id_barang = ? FOR UPDATE"
                 );
+                mysqli_stmt_bind_param($stmt_cek, "i", $id_barang);
+                mysqli_stmt_execute($stmt_cek);
+                $barang_valid = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek));
+                mysqli_stmt_close($stmt_cek);
 
-                mysqli_stmt_bind_param(
-                    $stmt,
-                    "isdss",
-                    $id_barang,
-                    $nama_pengeluaran,
-                    $jumlah,
-                    $tanggal_pengeluaran,
-                    $catatan
+                $stmt_cek = mysqli_prepare(
+                    $koneksi,
+                    "SELECT id_pengeluaran
+                     FROM pengeluaran
+                     WHERE id_barang = ?
+                     LIMIT 1"
                 );
+                mysqli_stmt_bind_param($stmt_cek, "i", $id_barang);
+                mysqli_stmt_execute($stmt_cek);
+                $sudah_dicatat = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek));
+                mysqli_stmt_close($stmt_cek);
+
+                if (!$barang_valid || $sudah_dicatat) {
+                    mysqli_rollback($koneksi);
+                    $pesan_error = "Barang ini tidak tersedia atau sudah memiliki catatan pengeluaran.";
+                } else {
+                    $stmt = mysqli_prepare(
+                        $koneksi,
+                        "INSERT INTO pengeluaran
+                            (id_barang, nama_pengeluaran, jumlah,
+                             tanggal_pengeluaran, catatan)
+                         VALUES (?, ?, ?, ?, ?)"
+                    );
+
+                    mysqli_stmt_bind_param(
+                        $stmt,
+                        "isdss",
+                        $id_barang,
+                        $nama_pengeluaran,
+                        $jumlah,
+                        $tanggal_pengeluaran,
+                        $catatan
+                    );
+                }
             }
 
-            if (mysqli_stmt_execute($stmt)) {
+            if ($pesan_error === "" && mysqli_stmt_execute($stmt)) {
                 mysqli_stmt_close($stmt);
-                header("Location: pengeluaran.php");
+                if ($id_barang !== null) {
+                    $stmt_status = mysqli_prepare(
+                        $koneksi,
+                        "UPDATE barang SET status = 'Sudah Dibeli' WHERE id_barang = ?"
+                    );
+                    mysqli_stmt_bind_param($stmt_status, "i", $id_barang);
+                    mysqli_stmt_execute($stmt_status);
+                    mysqli_stmt_close($stmt_status);
+                }
+                mysqli_commit($koneksi);
+                header(
+                    "Location: pengeluaran.php?tersimpan="
+                    . ($id_barang !== null ? "barang" : "umum")
+                );
                 exit;
             }
 
-            $pesan_error = "Gagal menyimpan pengeluaran.";
-            mysqli_stmt_close($stmt);
+            if ($pesan_error === "") {
+                mysqli_stmt_close($stmt);
+                mysqli_rollback($koneksi);
+                $pesan_error = "Gagal menyimpan pengeluaran.";
+            }
+        } catch (mysqli_sql_exception $exception) {
+            mysqli_rollback($koneksi);
+            error_log("Wishlist PJK expense creation failed: " . $exception->getMessage());
+            $pesan_error = "Pengeluaran gagal disimpan. Silakan coba lagi.";
         }
     }
 }
 
-// Barang yang bisa dipilih: sudah dibeli dan belum dicatat pengeluarannya
+// Barang yang bisa dipilih: belum memiliki catatan pengeluaran.
 $query_barang = mysqli_query(
     $koneksi,
     "SELECT b.id_barang, b.nama_barang, b.harga
      FROM barang b
-     WHERE b.status = 'Sudah Dibeli'
-       AND NOT EXISTS (
+     WHERE NOT EXISTS (
            SELECT 1
            FROM pengeluaran p
            WHERE p.id_barang = b.id_barang
@@ -203,7 +220,7 @@ if (!$query_barang) {
 
                         <div class="mb-3">
                             <label for="id_barang" class="form-label">
-                                Barang Terkait (opsional)
+                                Barang dari Daftar (opsional)
                             </label>
 
                             <select
@@ -227,10 +244,7 @@ if (!$query_barang) {
                                 <?php endwhile; ?>
                             </select>
 
-                            <div class="form-text">
-                                Hanya barang berstatus Sudah Dibeli yang belum
-                                dicatat pengeluarannya yang muncul di sini.
-                            </div>
+                            <div class="form-text">Pilih barang yang baru dibeli. Statusnya akan otomatis berubah menjadi Sudah Dibeli dan barang akan selesai dari daftar aktif.</div>
                         </div>
 
                         <div class="mb-3">

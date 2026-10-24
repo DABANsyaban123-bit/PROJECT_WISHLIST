@@ -25,14 +25,21 @@ if (!$data) {
 }
 
 $pesan_error = "";
+$id_barang_dipilih = (string) ($data["id_barang"] ?? "");
 
 // Proses perubahan data
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $nama = trim($_POST["nama_pengeluaran"] ?? "");
+    $nama_input = $_POST["nama_pengeluaran"] ?? "";
     $id_barang_input = $_POST["id_barang"] ?? "";
-    $jumlah_input = $_POST["jumlah"] ?? "";
-    $tanggal = $_POST["tanggal_pengeluaran"] ?? "";
-    $catatan = trim($_POST["catatan"] ?? "");
+    $jumlah_post = $_POST["jumlah"] ?? "";
+    $tanggal_post = $_POST["tanggal_pengeluaran"] ?? "";
+    $catatan_input = $_POST["catatan"] ?? "";
+    $nama = is_string($nama_input) ? trim($nama_input) : "";
+    $id_barang_input = is_string($id_barang_input) ? $id_barang_input : "";
+    $jumlah_input = is_string($jumlah_post) ? $jumlah_post : "";
+    $tanggal = is_string($tanggal_post) ? $tanggal_post : "";
+    $catatan = is_string($catatan_input) ? trim($catatan_input) : "";
+    $id_barang_dipilih = $id_barang_input;
 
     $id_barang = null;
 
@@ -64,24 +71,60 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             ? "Periksa kembali semua isian."
             : "Sesi formulir kedaluwarsa. Silakan muat ulang halaman.";
     } else {
-        // Pastikan barang yang dipilih memang ada
-        if ($id_barang !== null) {
-            $cek = mysqli_prepare(
-                $koneksi,
-                "SELECT id_barang FROM barang WHERE id_barang = ?"
-            );
-            mysqli_stmt_bind_param($cek, "i", $id_barang);
-            mysqli_stmt_execute($cek);
-            mysqli_stmt_store_result($cek);
+        try {
+            mysqli_begin_transaction($koneksi);
 
-            if (mysqli_stmt_num_rows($cek) === 0) {
-                $pesan_error = "Barang yang dipilih tidak ditemukan.";
+            $cek_lama = mysqli_prepare(
+                $koneksi,
+                "SELECT id_barang
+                 FROM pengeluaran
+                 WHERE id_pengeluaran = ?
+                 FOR UPDATE"
+            );
+            mysqli_stmt_bind_param($cek_lama, "i", $id);
+            mysqli_stmt_execute($cek_lama);
+            $pengeluaran_terkunci = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_lama));
+            mysqli_stmt_close($cek_lama);
+
+            if (!$pengeluaran_terkunci) {
+                throw new RuntimeException("Pengeluaran tidak ditemukan saat dikunci.");
             }
 
-            mysqli_stmt_close($cek);
-        }
+            $id_barang_lama = $pengeluaran_terkunci["id_barang"] !== null
+                ? (int) $pengeluaran_terkunci["id_barang"]
+                : null;
+            $barang_baru_valid = true;
 
-        if ($pesan_error === "") {
+            if ($id_barang !== null) {
+                $cek_barang = mysqli_prepare(
+                    $koneksi,
+                    "SELECT id_barang FROM barang WHERE id_barang = ? FOR UPDATE"
+                );
+                mysqli_stmt_bind_param($cek_barang, "i", $id_barang);
+                mysqli_stmt_execute($cek_barang);
+                $barang_baru_valid = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_barang)) !== null;
+                mysqli_stmt_close($cek_barang);
+
+                $cek_pemakaian = mysqli_prepare(
+                    $koneksi,
+                    "SELECT id_pengeluaran
+                     FROM pengeluaran
+                     WHERE id_barang = ?
+                       AND id_pengeluaran <> ?
+                     LIMIT 1"
+                );
+                mysqli_stmt_bind_param($cek_pemakaian, "ii", $id_barang, $id);
+                mysqli_stmt_execute($cek_pemakaian);
+                $sudah_dipakai = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_pemakaian)) !== null;
+                mysqli_stmt_close($cek_pemakaian);
+
+                if (!$barang_baru_valid || $sudah_dipakai) {
+                    mysqli_rollback($koneksi);
+                    $pesan_error = "Barang tidak tersedia atau sudah terhubung ke pengeluaran lain.";
+                }
+            }
+
+            if ($pesan_error === "") {
             if ($id_barang === null) {
                 $update = mysqli_prepare($koneksi, "
                     UPDATE pengeluaran
@@ -127,12 +170,50 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             if (mysqli_stmt_execute($update)) {
                 mysqli_stmt_close($update);
+                if ($id_barang !== null) {
+                    $status_baru = mysqli_prepare(
+                        $koneksi,
+                        "UPDATE barang SET status = 'Sudah Dibeli' WHERE id_barang = ?"
+                    );
+                    mysqli_stmt_bind_param($status_baru, "i", $id_barang);
+                    mysqli_stmt_execute($status_baru);
+                    mysqli_stmt_close($status_baru);
+                }
+
+                if ($id_barang_lama !== null && $id_barang_lama !== $id_barang) {
+                    $cek_pengeluaran_lain = mysqli_prepare(
+                        $koneksi,
+                        "SELECT id_pengeluaran FROM pengeluaran WHERE id_barang = ? LIMIT 1"
+                    );
+                    mysqli_stmt_bind_param($cek_pengeluaran_lain, "i", $id_barang_lama);
+                    mysqli_stmt_execute($cek_pengeluaran_lain);
+                    $masih_dipakai = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_pengeluaran_lain)) !== null;
+                    mysqli_stmt_close($cek_pengeluaran_lain);
+
+                    if (!$masih_dipakai) {
+                        $status_lama = mysqli_prepare(
+                            $koneksi,
+                            "UPDATE barang SET status = 'Belum Dibeli' WHERE id_barang = ?"
+                        );
+                        mysqli_stmt_bind_param($status_lama, "i", $id_barang_lama);
+                        mysqli_stmt_execute($status_lama);
+                        mysqli_stmt_close($status_lama);
+                    }
+                }
+
+                mysqli_commit($koneksi);
                 header("Location: pengeluaran.php");
                 exit;
             }
 
             $pesan_error = "Gagal memperbarui data pengeluaran.";
             mysqli_stmt_close($update);
+                mysqli_rollback($koneksi);
+            }
+        } catch (mysqli_sql_exception | RuntimeException $exception) {
+            mysqli_rollback($koneksi);
+            error_log("Wishlist PJK expense update failed: " . $exception->getMessage());
+            $pesan_error = "Pengeluaran gagal diperbarui. Silakan coba lagi.";
         }
     }
 
@@ -146,10 +227,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 
-$query_barang = mysqli_query(
+$stmt_barang = mysqli_prepare(
     $koneksi,
-    "SELECT id_barang, nama_barang FROM barang ORDER BY nama_barang"
+    "SELECT b.id_barang, b.nama_barang
+     FROM barang b
+     WHERE NOT EXISTS (
+         SELECT 1
+         FROM pengeluaran p
+         WHERE p.id_barang = b.id_barang
+           AND p.id_pengeluaran <> ?
+     )
+     ORDER BY b.nama_barang"
 );
+mysqli_stmt_bind_param($stmt_barang, "i", $id);
+mysqli_stmt_execute($stmt_barang);
+$query_barang = mysqli_stmt_get_result($stmt_barang);
 ?>
 
 <!DOCTYPE html>
@@ -205,7 +297,7 @@ $query_barang = mysqli_query(
                                         <?php while ($barang = mysqli_fetch_assoc($query_barang)): ?>
                                             <option
                                                 value="<?= (int) $barang['id_barang'] ?>"
-                                                <?= (string) $data['id_barang'] === (string) $barang['id_barang'] ? 'selected' : '' ?>>
+                                                <?= $id_barang_dipilih === (string) $barang['id_barang'] ? 'selected' : '' ?>>
                                                 <?= htmlspecialchars($barang['nama_barang']) ?>
                                             </option>
                                         <?php endwhile; ?>

@@ -95,7 +95,7 @@ while ($barang = mysqli_fetch_assoc($result)) {
 
 mysqli_stmt_close($stmt);
 
-// Statistik barang aktif, tidak terpengaruh filter pencarian.
+// Ringkasan seluruh barang, tidak terpengaruh filter pencarian.
 $query_statistik = mysqli_query($koneksi, "
     SELECT
         COUNT(*) AS total,
@@ -103,12 +103,7 @@ $query_statistik = mysqli_query($koneksi, "
         COALESCE(SUM(status = 'Belum Dibeli'), 0) AS belum,
         COALESCE(SUM(jenis = 'Kebutuhan'), 0) AS kebutuhan,
         COALESCE(SUM(jenis = 'Keinginan'), 0) AS keinginan
-    FROM barang b
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM pengeluaran p
-        WHERE p.id_barang = b.id_barang
-    )
+    FROM barang
 ");
 
 $stat = mysqli_fetch_assoc($query_statistik);
@@ -533,7 +528,7 @@ $query_error = "";
             <div class="stat-card">
                 <div class="stat-icon icon-navy"><i class="bi bi-bag"></i></div>
                 <div>
-                    <div class="stat-label">Barang Aktif</div>
+                    <div class="stat-label">Total Barang</div>
                     <div class="stat-number"><?= $total_barang ?></div>
                 </div>
             </div>

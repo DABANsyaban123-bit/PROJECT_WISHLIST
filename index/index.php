@@ -12,25 +12,14 @@ function rupiah($angka) {
     return "Rp " . number_format((float) $angka, 0, ",", ".");
 }
 
-// Barang aktif: belum dihubungkan ke pengeluaran mana pun.
-$sql_aktif = "
-    SELECT b.*
-    FROM barang b
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM pengeluaran p
-        WHERE p.id_barang = b.id_barang
-    )
-";
-
 $query_total = mysqli_query($koneksi, "
     SELECT
         COUNT(*) AS total,
-        SUM(status = 'Sudah Dibeli') AS sudah,
-        SUM(status = 'Belum Dibeli') AS belum,
-        SUM(jenis = 'Kebutuhan') AS kebutuhan,
-        SUM(jenis = 'Keinginan') AS keinginan
-    FROM ($sql_aktif) AS aktif
+        COALESCE(SUM(status = 'Sudah Dibeli'), 0) AS sudah,
+        COALESCE(SUM(status = 'Belum Dibeli'), 0) AS belum,
+        COALESCE(SUM(jenis = 'Kebutuhan'), 0) AS kebutuhan,
+        COALESCE(SUM(jenis = 'Keinginan'), 0) AS keinginan
+    FROM barang
 ");
 
 $stat = mysqli_fetch_assoc($query_total);
@@ -510,10 +499,10 @@ for ($i = 6; $i >= 0; $i--) {
     <div class="page-heading">
         <div>
             <h1>Dashboard</h1>
-            <p>Kelola kebutuhan, keinginan, dan pengeluaranmu dengan lebih teratur.</p>
+            <p>Kelola daftar belanja dan pantau pengeluaranmu dari satu tempat.</p>
         </div>
-        <a href="tambah.php" class="btn btn-gold">
-            <i class="bi bi-plus-lg me-1"></i> Tambah Barang
+        <a href="daftar.php" class="btn btn-gold">
+            <i class="bi bi-list-check me-1"></i> Kelola Daftar Barang
         </a>
     </div>
 
@@ -570,7 +559,7 @@ for ($i = 6; $i >= 0; $i--) {
                 </div>
 
                 <p class="text-secondary small mb-3">
-                    Progres berdasarkan barang aktif yang sudah dibeli.
+                    Progres pembelian dari seluruh barang di daftar.
                 </p>
 
                 <div class="progress">

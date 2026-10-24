@@ -515,7 +515,7 @@ $query_error = "";
     <div class="page-heading">
         <div>
             <h1>Daftar Barang</h1>
-            <p>Barang yang sudah dicatat di pengeluaran otomatis berubah status dan selesai dari daftar aktif.</p>
+            <p>Ringkasan mencakup semua barang; daftar di bawah hanya menampilkan barang yang belum dicatat di pengeluaran.</p>
         </div>
 
         <a href="tambah.php" class="btn btn-gold">

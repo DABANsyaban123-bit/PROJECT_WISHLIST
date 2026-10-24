@@ -228,7 +228,7 @@ if (!$query_barang) {
                                 name="id_barang"
                                 class="form-select">
 
-                                <option value="">Tidak terkait dengan barang</option>
+                                <option value="">Catat pengeluaran tanpa mengaitkan barang</option>
 
                                 <?php while ($barang = mysqli_fetch_assoc($query_barang)): ?>
                                     <option
@@ -325,7 +325,7 @@ if (!$query_barang) {
         const harga = option.dataset.harga || "";
 
         if (nama !== "") {
-            inputNama.value = "Membeli " + nama;
+            inputNama.value = "Pembelian " + nama;
         }
 
         if (harga !== "") {

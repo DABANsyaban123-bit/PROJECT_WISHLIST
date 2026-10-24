@@ -511,7 +511,7 @@ for ($i = 6; $i >= 0; $i--) {
             <div class="stat-card">
                 <div class="stat-icon icon-navy"><i class="bi bi-bag"></i></div>
                 <div>
-                    <div class="stat-label">Barang Aktif</div>
+                    <div class="stat-label">Total Barang</div>
                     <div class="stat-number"><?= $total_barang ?></div>
                 </div>
             </div>

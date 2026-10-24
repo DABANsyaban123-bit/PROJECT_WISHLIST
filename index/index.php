@@ -2,11 +2,15 @@
 <?php
 include_once __DIR__ . "/../config.php";
 
-function aman($nilai) {
-    return htmlspecialchars((string)($nilai ?? ""), ENT_QUOTES, "UTF-8");
+function e($value) {
+    return htmlspecialchars((string) $value, ENT_QUOTES, "UTF-8");
 }
 
-// Hanya menghitung barang aktif, yaitu barang yang belum dicatat sebagai pengeluaran.
+function rupiah($angka) {
+    return "Rp " . number_format((float) $angka, 0, ",", ".");
+}
+
+// Barang aktif: belum dihubungkan ke pengeluaran mana pun.
 $sql_aktif = "
     SELECT b.*
     FROM barang b
@@ -17,74 +21,38 @@ $sql_aktif = "
     )
 ";
 
-// Statistik barang aktif
 $query_total = mysqli_query($koneksi, "
-    SELECT COUNT(*) AS total
-    FROM barang b
-    WHERE NOT EXISTS (
-        SELECT 1 FROM pengeluaran p
-        WHERE p.id_barang = b.id_barang
-    )
+    SELECT
+        COUNT(*) AS total,
+        SUM(status = 'Sudah Dibeli') AS sudah,
+        SUM(status = 'Belum Dibeli') AS belum,
+        SUM(jenis = 'Kebutuhan') AS kebutuhan,
+        SUM(jenis = 'Keinginan') AS keinginan
+    FROM ($sql_aktif) AS aktif
 ");
-$total_barang = (int) mysqli_fetch_assoc($query_total)["total"];
 
-$query_belum = mysqli_query($koneksi, "
-    SELECT COUNT(*) AS total
-    FROM barang b
-    WHERE b.status = 'Belum Dibeli'
-    AND NOT EXISTS (
-        SELECT 1 FROM pengeluaran p
-        WHERE p.id_barang = b.id_barang
-    )
-");
-$belum_dibeli = (int) mysqli_fetch_assoc($query_belum)["total"];
+$stat = mysqli_fetch_assoc($query_total);
 
-$query_sudah = mysqli_query($koneksi, "
-    SELECT COUNT(*) AS total
-    FROM barang b
-    WHERE b.status = 'Sudah Dibeli'
-    AND NOT EXISTS (
-        SELECT 1 FROM pengeluaran p
-        WHERE p.id_barang = b.id_barang
-    )
-");
-$sudah_dibeli = (int) mysqli_fetch_assoc($query_sudah)["total"];
-
-$query_kebutuhan = mysqli_query($koneksi, "
-    SELECT COUNT(*) AS total
-    FROM barang b
-    WHERE b.jenis = 'Kebutuhan'
-    AND NOT EXISTS (
-        SELECT 1 FROM pengeluaran p
-        WHERE p.id_barang = b.id_barang
-    )
-");
-$total_kebutuhan = (int) mysqli_fetch_assoc($query_kebutuhan)["total"];
-
-$query_keinginan = mysqli_query($koneksi, "
-    SELECT COUNT(*) AS total
-    FROM barang b
-    WHERE b.jenis = 'Keinginan'
-    AND NOT EXISTS (
-        SELECT 1 FROM pengeluaran p
-        WHERE p.id_barang = b.id_barang
-    )
-");
-$total_keinginan = (int) mysqli_fetch_assoc($query_keinginan)["total"];
+$total_barang = (int) ($stat["total"] ?? 0);
+$sudah_dibeli = (int) ($stat["sudah"] ?? 0);
+$belum_dibeli = (int) ($stat["belum"] ?? 0);
+$total_kebutuhan = (int) ($stat["kebutuhan"] ?? 0);
+$total_keinginan = (int) ($stat["keinginan"] ?? 0);
 
 $persentase = $total_barang > 0
     ? round(($sudah_dibeli / $total_barang) * 100)
     : 0;
 
-// Total pengeluaran minggu ini
+// Pengeluaran minggu ini.
 $query_minggu = mysqli_query($koneksi, "
     SELECT COALESCE(SUM(jumlah), 0) AS total
     FROM pengeluaran
-    WHERE YEARWEEK(tanggal_pengeluaran, 1) = YEARWEEK(CURDATE(), 1)
+    WHERE YEARWEEK(tanggal_pengeluaran, 1)
+        = YEARWEEK(CURDATE(), 1)
 ");
 $total_minggu = (float) mysqli_fetch_assoc($query_minggu)["total"];
 
-// Total pengeluaran bulan ini
+// Pengeluaran bulan ini.
 $query_bulan = mysqli_query($koneksi, "
     SELECT COALESCE(SUM(jumlah), 0) AS total
     FROM pengeluaran
@@ -93,40 +61,55 @@ $query_bulan = mysqli_query($koneksi, "
 ");
 $total_bulan = (float) mysqli_fetch_assoc($query_bulan)["total"];
 
-// Daftar barang aktif terbaru
-$query_barang = mysqli_query($koneksi, "
-    SELECT b.id_barang, b.nama_barang, b.kategori, b.jenis,
-           b.harga, b.status
+// Barang terbaru yang masih aktif.
+$query_kebutuhan = mysqli_query($koneksi, "
+    SELECT b.*
     FROM barang b
-    WHERE NOT EXISTS (
-        SELECT 1 FROM pengeluaran p
-        WHERE p.id_barang = b.id_barang
-    )
+    WHERE b.jenis = 'Kebutuhan'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pengeluaran p
+          WHERE p.id_barang = b.id_barang
+      )
     ORDER BY b.id_barang DESC
-    LIMIT 8
-");
-
-// Pengeluaran terbaru
-$query_pengeluaran = mysqli_query($koneksi, "
-    SELECT p.id_pengeluaran, p.nama_pengeluaran, p.jumlah,
-           p.tanggal_pengeluaran, p.catatan, b.nama_barang
-    FROM pengeluaran p
-    LEFT JOIN barang b ON p.id_barang = b.id_barang
-    ORDER BY p.tanggal_pengeluaran DESC, p.id_pengeluaran DESC
     LIMIT 5
 ");
 
-// Data grafik pengeluaran 7 hari terakhir
+$query_keinginan = mysqli_query($koneksi, "
+    SELECT b.*
+    FROM barang b
+    WHERE b.jenis = 'Keinginan'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pengeluaran p
+          WHERE p.id_barang = b.id_barang
+      )
+    ORDER BY b.id_barang DESC
+    LIMIT 5
+");
+
+// Pengeluaran terbaru.
+$query_pengeluaran = mysqli_query($koneksi, "
+    SELECT *
+    FROM pengeluaran
+    ORDER BY tanggal_pengeluaran DESC, id_pengeluaran DESC
+    LIMIT 5
+");
+
+// Grafik pengeluaran tujuh hari terakhir.
 $query_grafik = mysqli_query($koneksi, "
-    SELECT DATE(tanggal_pengeluaran) AS tanggal,
-           COALESCE(SUM(jumlah), 0) AS total
+    SELECT
+        DATE(tanggal_pengeluaran) AS tanggal,
+        COALESCE(SUM(jumlah), 0) AS total
     FROM pengeluaran
     WHERE tanggal_pengeluaran >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
       AND tanggal_pengeluaran < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
     GROUP BY DATE(tanggal_pengeluaran)
+    ORDER BY tanggal ASC
 ");
 
 $data_grafik = [];
+
 while ($row = mysqli_fetch_assoc($query_grafik)) {
     $data_grafik[$row["tanggal"]] = (float) $row["total"];
 }
@@ -135,7 +118,7 @@ $label_grafik = [];
 $nilai_grafik = [];
 
 for ($i = 6; $i >= 0; $i--) {
-    $tanggal = date("Y-m-d", strtotime("-$i days"));
+    $tanggal = date("Y-m-d", strtotime("-" . $i . " days"));
     $label_grafik[] = date("d/m", strtotime($tanggal));
     $nilai_grafik[] = $data_grafik[$tanggal] ?? 0;
 }
@@ -146,383 +129,525 @@ for ($i = 6; $i >= 0; $i--) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | Wishlist</title>
+    <title>Dashboard | Wishlist PJK</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../STYLES.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
-    <style>
-        :root {
-            --navy: #101b35;
-            --navy-light: #192847;
-            --gold: #d8b45a;
-            --bg: #f4f6fa;
-            --muted: #758096;
-        }
+    
+<style>
+    :root {
+        --navy: #263f70;
+        --navy-dark: #20365f;
+        --gold: #a77b2e;
+        --cream: #f7f4ec;
+        --muted: #7b879b;
+        --border: #edf0f5;
+    }
 
-        body {
-            background: var(--bg);
-            color: #202b40;
-            font-family: Arial, sans-serif;
-        }
+    body {
+        background: var(--cream) !important;
+        color: #171717;
+        font-family: Arial, Helvetica, sans-serif;
+    }
 
-        .app-navbar {
-            background: var(--navy);
-            padding: 15px 0;
-        }
+    .navbar-custom {
+        background: var(--navy) !important;
+        min-height: 82px;
+        padding: 12px 0 !important;
+        box-shadow: 0 3px 12px rgba(30, 48, 80, .08);
+    }
 
-        .brand {
-            color: #fff;
-            font-weight: 800;
-            font-size: 21px;
-            text-decoration: none;
-        }
+    .navbar-brand {
+        font-size: 23px !important;
+        font-weight: 800 !important;
+        color: white !important;
+    }
 
-        .brand span {
-            color: var(--gold);
-        }
+    .brand-mark {
+        display: none !important;
+    }
 
-        .nav-link-custom {
-            color: #dbe2f0;
-            text-decoration: none;
-            margin-left: 20px;
-            font-size: 14px;
-        }
+    .navbar-custom .nav-link {
+        color: white !important;
+        font-size: 16px;
+        padding: 14px 18px !important;
+        margin-left: 8px !important;
+        border-radius: 11px !important;
+        transition: background .2s ease;
+    }
 
-        .nav-link-custom:hover,
-        .nav-link-custom.active {
-            color: var(--gold);
-        }
+    .navbar-custom .nav-link:hover,
+    .navbar-custom .nav-link.active {
+        background: rgba(255, 255, 255, .14) !important;
+    }
 
+    .page-container {
+        max-width: 1600px !important;
+        padding: 48px 30px 50px !important;
+    }
+
+    .page-heading {
+        margin-bottom: 34px !important;
+    }
+
+    .page-heading h1 {
+        color: var(--navy) !important;
+        font-size: 36px !important;
+        font-weight: 800 !important;
+        letter-spacing: -.8px;
+    }
+
+    .page-heading p {
+        color: var(--muted) !important;
+        font-size: 16px !important;
+        line-height: 1.7;
+    }
+
+    .btn-gold {
+        background: var(--navy) !important;
+        border-color: var(--navy) !important;
+        color: white !important;
+        border-radius: 13px !important;
+        padding: 17px 23px !important;
+        font-size: 16px;
+        font-weight: 700;
+        box-shadow: none !important;
+    }
+
+    .btn-gold:hover {
+        background: var(--navy-dark) !important;
+        border-color: var(--navy-dark) !important;
+        color: white !important;
+        transform: translateY(-1px);
+    }
+
+    .stat-card,
+    .panel {
+        background: white !important;
+        border: 1px solid #f0f1f4 !important;
+        border-radius: 23px !important;
+        box-shadow: 0 12px 35px rgba(35, 50, 80, .045) !important;
+    }
+
+    .stat-card {
+        padding: 28px !important;
+        min-height: 175px;
+        align-items: flex-start !important;
+        flex-wrap: wrap;
+        gap: 18px !important;
+    }
+
+    .stat-icon {
+        width: 55px !important;
+        height: 55px !important;
+        border-radius: 16px !important;
+        font-size: 23px !important;
+    }
+
+    .icon-navy {
+        background: #edf2fb !important;
+        color: var(--navy) !important;
+    }
+
+    .icon-gold {
+        background: #fbf2df !important;
+        color: #b17c21 !important;
+    }
+
+    .icon-green {
+        background: #e6f5ec !important;
+        color: #228452 !important;
+    }
+
+    .icon-blue {
+        background: #eaf1fc !important;
+        color: #31588d !important;
+    }
+
+    .stat-label {
+        font-size: 15px !important;
+        color: #758195 !important;
+    }
+
+    .stat-number {
+        font-size: 29px !important;
+        color: var(--navy) !important;
+        font-weight: 800 !important;
+    }
+
+    .panel {
+        padding: 28px !important;
+        margin-bottom: 28px !important;
+    }
+
+    .panel-heading {
+        margin-bottom: 24px !important;
+    }
+
+    .panel-heading h5 {
+        font-size: 21px !important;
+        color: var(--navy) !important;
+        font-weight: 800 !important;
+    }
+
+    .panel-heading a {
+        color: var(--navy) !important;
+        font-weight: 700;
+    }
+
+    .form-control,
+    .form-select {
+        min-height: 52px !important;
+        border: 1px solid #d9dfeb !important;
+        border-radius: 13px !important;
+        padding: 12px 15px !important;
+        font-size: 15px !important;
+        background-color: white !important;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #7288b2 !important;
+        box-shadow: 0 0 0 3px rgba(38, 63, 112, .09) !important;
+    }
+
+    .btn-filter {
+        background: var(--navy) !important;
+        border-radius: 12px !important;
+        min-height: 52px !important;
+    }
+
+    .btn-reset {
+        border-radius: 12px !important;
+        min-height: 52px !important;
+    }
+
+    .table-responsive {
+        border-radius: 14px;
+    }
+
+    .table {
+        color: #161616 !important;
+    }
+
+    .table thead th {
+        background: #f6f7fa !important;
+        color: var(--navy) !important;
+        padding: 20px 18px !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        border-bottom: 1px solid #e3e7ef !important;
+    }
+
+    .table tbody td {
+        padding: 19px 18px !important;
+        font-size: 14px !important;
+        border-bottom: 1px solid #edf0f4 !important;
+    }
+
+    .table tbody tr:last-child td {
+        border-bottom: none !important;
+    }
+
+    .table tbody tr:hover {
+        background: #fbfcfe;
+    }
+
+    .money {
+        color: #171717 !important;
+        font-weight: 800 !important;
+    }
+
+    .badge-status {
+        padding: 8px 12px !important;
+        border-radius: 9px !important;
+    }
+
+    .section-title h5 {
+        color: var(--navy) !important;
+        font-size: 19px !important;
+    }
+
+    .section-icon {
+        border-radius: 13px !important;
+    }
+
+    .section-count {
+        border-radius: 10px !important;
+        padding: 8px 12px !important;
+    }
+
+    .action-btn {
+        width: auto !important;
+        min-width: 48px;
+        height: 39px !important;
+        padding: 0 11px;
+        border-radius: 10px !important;
+        font-size: 14px;
+        background: white !important;
+    }
+
+    .edit-btn {
+        border-color: var(--navy) !important;
+        color: var(--navy) !important;
+    }
+
+    .delete-btn {
+        border-color: #ef4444 !important;
+        color: #ef4444 !important;
+    }
+
+    .edit-btn:hover {
+        background: #edf2fb !important;
+    }
+
+    .delete-btn:hover {
+        background: #fff0f0 !important;
+    }
+
+    .progress {
+        height: 12px !important;
+        border-radius: 20px !important;
+    }
+
+    .progress-bar {
+        background: var(--gold) !important;
+    }
+
+    .type-summary {
+        border-radius: 14px !important;
+        padding: 19px !important;
+        background: #fcfcfd !important;
+    }
+
+    .footer-note {
+        color: var(--muted);
+        padding: 18px 0;
+    }
+
+    @media (max-width: 767px) {
         .page-container {
-            max-width: 1250px;
-            margin: 0 auto;
-            padding: 32px 20px 50px;
+            padding: 28px 15px !important;
         }
 
-        .welcome-title {
-            font-size: clamp(25px, 4vw, 32px);
-            font-weight: 800;
-            color: var(--navy);
-            margin-bottom: 7px;
-        }
-
-        .muted {
-            color: var(--muted);
-        }
-
-        .stat-card,
-        .panel {
-            background: #fff;
-            border: 1px solid #e8ecf3;
-            border-radius: 16px;
-            box-shadow: 0 5px 20px rgba(16, 27, 53, .04);
+        .page-heading h1 {
+            font-size: 29px !important;
         }
 
         .stat-card {
-            padding: 22px;
-            height: 100%;
-        }
-
-        .stat-label {
-            color: var(--muted);
-            font-size: 13px;
-            margin-bottom: 12px;
+            min-height: 140px;
+            padding: 18px !important;
+            gap: 12px !important;
         }
 
         .stat-number {
-            font-size: 27px;
-            font-weight: 800;
-            color: var(--navy);
-        }
-
-        .stat-icon {
-            width: 43px;
-            height: 43px;
-            display: grid;
-            place-items: center;
-            background: #f4edd9;
-            color: #8d6b18;
-            border-radius: 12px;
-            font-size: 21px;
+            font-size: 22px !important;
         }
 
         .panel {
-            padding: 23px;
-            margin-top: 24px;
+            padding: 18px !important;
         }
 
-        .panel-title {
-            color: var(--navy);
-            font-size: 18px;
-            font-weight: 800;
-            margin: 0;
-        }
-
-        .btn-gold {
-            background: var(--gold);
-            color: var(--navy);
-            border: 0;
-            font-weight: 700;
-        }
-
-        .btn-gold:hover {
-            background: #caa343;
-            color: var(--navy);
-        }
-
-        .btn-navy {
-            background: var(--navy);
-            color: #fff;
-            border: 0;
-        }
-
-        .btn-navy:hover {
-            background: var(--navy-light);
-            color: #fff;
-        }
-
-        .table {
-            vertical-align: middle;
-            margin-bottom: 0;
-        }
-
-        .table thead th {
-            color: #778198;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            white-space: nowrap;
-            border-bottom: 1px solid #e8ecf3;
-        }
-
+        .table thead th,
         .table tbody td {
-            padding-top: 14px;
-            padding-bottom: 14px;
-            border-color: #edf0f5;
+            padding: 14px 12px !important;
         }
+    }
+</style>
 
-        .badge-type {
-            background: #f4edd9;
-            color: #806019;
-            padding: 7px 10px;
-            border-radius: 20px;
-        }
-
-        .badge-bought {
-            background: #dff5e8;
-            color: #167343;
-        }
-
-        .badge-not-bought {
-            background: #fff0d5;
-            color: #96610b;
-        }
-
-        .progress {
-            height: 9px;
-            background: #e9edf4;
-        }
-
-        .progress-bar {
-            background: var(--gold);
-        }
-
-        .section-link {
-            color: #9b791f;
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 13px;
-        }
-
-        .section-link:hover {
-            text-decoration: underline;
-        }
-
-        .empty-state {
-            color: var(--muted);
-            text-align: center;
-            padding: 28px 10px;
-        }
-
-        @media (max-width: 600px) {
-            .page-container {
-                padding: 22px 13px 35px;
-            }
-
-            .panel {
-                padding: 16px;
-            }
-
-            .stat-card {
-                padding: 17px;
-            }
-
-            .stat-number {
-                font-size: 23px;
-            }
-
-            .nav-link-custom {
-                margin-left: 10px;
-            }
-        }
-    </style>
 </head>
 
 <body>
 
-<nav class="app-navbar">
-    <div class="container d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <a class="brand" href="index.php">Wishlist <span></span></a>
+<nav class="navbar navbar-expand-lg navbar-custom">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand" href="index.php">
+            <span class="brand-mark"><i class="bi bi-bag-heart-fill"></i></span>
+            Wishlist PJK
+        </a>
 
-        <div class="d-flex align-items-center flex-wrap">
-            <a class="nav-link-custom active" href="index.php">Dashboard</a>
-            <a class="nav-link-custom" href="daftar.php">Daftar Barang</a>
-            <a class="nav-link-custom" href="../pengeluaran/pengeluaran.php">Pengeluaran</a>
+        <button class="navbar-toggler bg-light" type="button"
+                data-bs-toggle="collapse" data-bs-target="#navbarMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarMenu">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link active" href="index.php">
+                        <i class="bi bi-grid-1x2 me-1"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="daftar.php">
+                        <i class="bi bi-list-check me-1"></i> Daftar Barang
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="../pengeluaran/pengeluaran.php">
+                        <i class="bi bi-wallet2 me-1"></i> Pengeluaran
+                    </a>
+                </li>
+            </ul>
         </div>
     </div>
 </nav>
 
 <main class="page-container">
 
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+    <div class="page-heading">
         <div>
-            <h1 class="welcome-title">Dashboard</h1>
-            <p class="muted mb-0">Pantau kebutuhan, keinginan, dan pengeluaranmu.</p>
+            <h1>Dashboard</h1>
+            <p>Kelola kebutuhan, keinginan, dan pengeluaranmu dengan lebih teratur.</p>
         </div>
-
-        <a href="tambah.php" class="btn btn-gold px-4 py-2">
-            + Tambah Barang
+        <a href="tambah.php" class="btn btn-gold">
+            <i class="bi bi-plus-lg me-1"></i> Tambah Barang
         </a>
     </div>
 
-    <div class="row g-3">
+    <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
             <div class="stat-card">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="stat-label">Barang Aktif</div>
-                        <div class="stat-number"><?= $total_barang ?></div>
-                    </div>
-                    <div class="stat-icon">📦</div>
+                <div class="stat-icon icon-navy"><i class="bi bi-bag"></i></div>
+                <div>
+                    <div class="stat-label">Barang Aktif</div>
+                    <div class="stat-number"><?= $total_barang ?></div>
                 </div>
-                <small class="muted">Belum dicatat sebagai pengeluaran</small>
             </div>
         </div>
 
         <div class="col-6 col-lg-3">
             <div class="stat-card">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="stat-label">Kebutuhan</div>
-                        <div class="stat-number"><?= $total_kebutuhan ?></div>
-                    </div>
-                    <div class="stat-icon">🎯</div>
+                <div class="stat-icon icon-green"><i class="bi bi-check-circle"></i></div>
+                <div>
+                    <div class="stat-label">Sudah Dibeli</div>
+                    <div class="stat-number"><?= $sudah_dibeli ?></div>
                 </div>
-                <small class="muted">Barang kategori kebutuhan</small>
             </div>
         </div>
 
         <div class="col-6 col-lg-3">
             <div class="stat-card">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="stat-label">Keinginan</div>
-                        <div class="stat-number"><?= $total_keinginan ?></div>
-                    </div>
-                    <div class="stat-icon">⭐</div>
+                <div class="stat-icon icon-gold"><i class="bi bi-hourglass-split"></i></div>
+                <div>
+                    <div class="stat-label">Belum Dibeli</div>
+                    <div class="stat-number"><?= $belum_dibeli ?></div>
                 </div>
-                <small class="muted">Barang kategori keinginan</small>
             </div>
         </div>
 
         <div class="col-6 col-lg-3">
             <div class="stat-card">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <div class="stat-label">Belum Dibeli</div>
-                        <div class="stat-number"><?= $belum_dibeli ?></div>
+                <div class="stat-icon icon-blue"><i class="bi bi-wallet2"></i></div>
+                <div>
+                    <div class="stat-label">Pengeluaran Bulan Ini</div>
+                    <div class="stat-number" style="font-size:19px">
+                        <?= rupiah($total_bulan) ?>
                     </div>
-                    <div class="stat-icon">🛒</div>
                 </div>
-                <small class="muted">Masih ada di daftar aktif</small>
             </div>
         </div>
     </div>
 
-    <div class="row g-3 mt-1">
+    <div class="row g-4 mb-1">
         <div class="col-lg-7">
-            <div class="panel h-100">
-                <h2 class="panel-title mb-2">Progres Pembelian</h2>
-                <p class="muted small mb-3">
-                    Barang yang sudah dibeli dan belum dicatat sebagai pengeluaran.
-                </p>
-
-                <div class="d-flex justify-content-between mb-2">
-                    <span class="fw-semibold">Progres</span>
-                    <span class="fw-bold"><?= $persentase ?>%</span>
+            <section class="panel">
+                <div class="panel-heading">
+                    <h5><i class="bi bi-graph-up-arrow me-2"></i>Progres Wishlist</h5>
+                    <span class="badge text-bg-light"><?= $persentase ?>%</span>
                 </div>
 
-                <div class="progress mb-3">
+                <p class="text-secondary small mb-3">
+                    Progres berdasarkan barang aktif yang sudah dibeli.
+                </p>
+
+                <div class="progress">
                     <div class="progress-bar" role="progressbar"
                          style="width: <?= $persentase ?>%"
                          aria-valuenow="<?= $persentase ?>"
                          aria-valuemin="0" aria-valuemax="100"></div>
                 </div>
 
-                <div class="d-flex justify-content-between flex-wrap gap-2 small">
-                    <span class="muted">Sudah dibeli: <strong><?= $sudah_dibeli ?></strong></span>
-                    <span class="muted">Belum dibeli: <strong><?= $belum_dibeli ?></strong></span>
+                <div class="progress-meta">
+                    <span><?= $sudah_dibeli ?> dari <?= $total_barang ?> barang</span>
+                    <span><?= $persentase ?>% selesai</span>
                 </div>
-            </div>
+
+                <hr class="my-4" style="border-color:var(--border)">
+
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="type-summary">
+                            <div>
+                                <strong><i class="bi bi-shield-check me-1"></i>Kebutuhan</strong>
+                                <small>Barang kebutuhan aktif</small>
+                            </div>
+                            <div class="type-number"><?= $total_kebutuhan ?></div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="type-summary">
+                            <div>
+                                <strong><i class="bi bi-stars me-1"></i>Keinginan</strong>
+                                <small>Barang keinginan aktif</small>
+                            </div>
+                            <div class="type-number"><?= $total_keinginan ?></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
 
         <div class="col-lg-5">
-            <div class="panel h-100">
-                <h2 class="panel-title mb-3">Ringkasan Pengeluaran</h2>
-
-                <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
-                    <div>
-                        <div class="muted small">Pengeluaran minggu ini</div>
-                        <div class="fw-bold fs-5">Rp <?= number_format($total_minggu, 0, ",", ".") ?></div>
-                    </div>
-                    <span class="stat-icon">📅</span>
+            <section class="panel">
+                <div class="panel-heading">
+                    <h5><i class="bi bi-wallet2 me-2"></i>Ringkasan Pengeluaran</h5>
+                    <a href="../pengeluaran/pengeluaran.php">Lihat semua</a>
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center py-3">
+                <div class="type-summary mb-3">
                     <div>
-                        <div class="muted small">Pengeluaran bulan ini</div>
-                        <div class="fw-bold fs-5">Rp <?= number_format($total_bulan, 0, ",", ".") ?></div>
+                        <strong>Pengeluaran minggu ini</strong>
+                        <small>Total dari Senin sampai Minggu</small>
                     </div>
-                    <span class="stat-icon">💰</span>
+                    <div class="text-end">
+                        <div class="type-number" style="font-size:18px">
+                            <?= rupiah($total_minggu) ?>
+                        </div>
+                    </div>
                 </div>
 
-                <a href="../pengeluaran/pengeluaran.php" class="section-link">
-                    Lihat semua pengeluaran →
-                </a>
-            </div>
+                <div class="type-summary">
+                    <div>
+                        <strong>Pengeluaran bulan ini</strong>
+                        <small>Total bulan berjalan</small>
+                    </div>
+                    <div class="text-end">
+                        <div class="type-number" style="font-size:18px">
+                            <?= rupiah($total_bulan) ?>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
 
-    <div class="panel">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-            <div>
-                <h2 class="panel-title">Grafik Pengeluaran</h2>
-                <p class="muted small mb-0">Pengeluaran selama 7 hari terakhir.</p>
-            </div>
+    <section class="panel">
+        <div class="panel-heading">
+            <h5><i class="bi bi-bar-chart-line me-2"></i>Grafik Pengeluaran 7 Hari Terakhir</h5>
         </div>
-        <div style="height: 280px;">
+        <div style="height:280px">
             <canvas id="grafikPengeluaran"></canvas>
         </div>
-    </div>
+    </section>
 
-    <div class="panel">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-            <div>
-                <h2 class="panel-title">Daftar Barang Aktif</h2>
-                <p class="muted small mb-0">Barang yang belum dicatat dalam pengeluaran.</p>
-            </div>
-            <a href="daftar.php" class="section-link">Lihat semua →</a>
+    <section class="panel">
+        <div class="panel-heading">
+            <h5><i class="bi bi-shield-check me-2"></i>Daftar Kebutuhan</h5>
+            <a href="daftar.php?jenis=Kebutuhan">Lihat semua</a>
         </div>
 
         <div class="table-responsive">
@@ -530,88 +655,110 @@ for ($i = 6; $i >= 0; $i--) {
                 <thead>
                     <tr>
                         <th>Nama Barang</th>
-                        <th>Jenis</th>
                         <th>Kategori</th>
                         <th>Harga</th>
                         <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                <?php if (mysqli_num_rows($query_barang) > 0): ?>
-                    <?php while ($barang = mysqli_fetch_assoc($query_barang)): ?>
+                <?php if (mysqli_num_rows($query_kebutuhan) > 0): ?>
+                    <?php while ($barang = mysqli_fetch_assoc($query_kebutuhan)): ?>
                         <tr>
-                            <td class="fw-semibold"><?= aman($barang["nama_barang"]) ?></td>
+                            <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
+                            <td><?= e($barang["kategori"]) ?></td>
+                            <td class="money"><?= rupiah($barang["harga"]) ?></td>
                             <td>
-                                <span class="badge badge-type"><?= aman($barang["jenis"] ?? "Keinginan") ?></span>
-                            </td>
-                            <td><?= aman($barang["kategori"]) ?></td>
-                            <td>Rp <?= number_format((float)$barang["harga"], 0, ",", ".") ?></td>
-                            <td>
-                                <?php if ($barang["status"] === "Sudah Dibeli"): ?>
-                                    <span class="badge badge-bought">Sudah Dibeli</span>
-                                <?php else: ?>
-                                    <span class="badge badge-not-bought">Belum Dibeli</span>
-                                <?php endif; ?>
+                                <span class="badge-status <?= $barang["status"] === "Sudah Dibeli" ? "status-sudah" : "status-belum" ?>">
+                                    <?= e($barang["status"]) ?>
+                                </span>
                             </td>
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr>
-                        <td colspan="5" class="empty-state">
-                            Belum ada barang aktif. Kamu bisa menambah barang baru.
-                        </td>
-                    </tr>
+                    <tr><td colspan="4" class="empty-state">Belum ada kebutuhan aktif.</td></tr>
                 <?php endif; ?>
                 </tbody>
             </table>
         </div>
-    </div>
+    </section>
 
-    <div class="row g-3">
-        <div class="col-12">
-            <div class="panel">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                    <h2 class="panel-title">Pengeluaran Terbaru</h2>
-                    <a href="../pengeluaran/pengeluaran.php" class="section-link">Lihat semua →</a>
-                </div>
-
-                <div class="table-responsive">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Tanggal</th>
-                                <th>Nama Pengeluaran</th>
-                                <th>Barang Terkait</th>
-                                <th>Jumlah</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        <?php if (mysqli_num_rows($query_pengeluaran) > 0): ?>
-                            <?php while ($pengeluaran = mysqli_fetch_assoc($query_pengeluaran)): ?>
-                                <tr>
-                                    <td><?= aman(date("d/m/Y", strtotime($pengeluaran["tanggal_pengeluaran"]))) ?></td>
-                                    <td class="fw-semibold"><?= aman($pengeluaran["nama_pengeluaran"]) ?></td>
-                                    <td><?= aman($pengeluaran["nama_barang"] ?: "-") ?></td>
-                                    <td class="fw-semibold">Rp <?= number_format((float)$pengeluaran["jumlah"], 0, ",", ".") ?></td>
-                                </tr>
-                            <?php endwhile; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="4" class="empty-state">Belum ada catatan pengeluaran.</td>
-                            </tr>
-                        <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <section class="panel">
+        <div class="panel-heading">
+            <h5><i class="bi bi-stars me-2"></i>Daftar Keinginan</h5>
+            <a href="daftar.php?jenis=Keinginan">Lihat semua</a>
         </div>
-    </div>
 
-    <footer class="text-center muted small mt-4">
-        Wishlist PJK &copy; <?= date("Y") ?>
-    </footer>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nama Barang</th>
+                        <th>Kategori</th>
+                        <th>Harga</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php if (mysqli_num_rows($query_keinginan) > 0): ?>
+                    <?php while ($barang = mysqli_fetch_assoc($query_keinginan)): ?>
+                        <tr>
+                            <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
+                            <td><?= e($barang["kategori"]) ?></td>
+                            <td class="money"><?= rupiah($barang["harga"]) ?></td>
+                            <td>
+                                <span class="badge-status <?= $barang["status"] === "Sudah Dibeli" ? "status-sudah" : "status-belum" ?>">
+                                    <?= e($barang["status"]) ?>
+                                </span>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <tr><td colspan="4" class="empty-state">Belum ada keinginan aktif.</td></tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-heading">
+            <h5><i class="bi bi-clock-history me-2"></i>Pengeluaran Terbaru</h5>
+            <a href="../pengeluaran/pengeluaran.php">Lihat semua</a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Nama Pengeluaran</th>
+                        <th>Catatan</th>
+                        <th>Jumlah</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php if (mysqli_num_rows($query_pengeluaran) > 0): ?>
+                    <?php while ($pengeluaran = mysqli_fetch_assoc($query_pengeluaran)): ?>
+                        <tr>
+                            <td><?= e(date("d/m/Y", strtotime($pengeluaran["tanggal_pengeluaran"]))) ?></td>
+                            <td><strong><?= e($pengeluaran["nama_pengeluaran"]) ?></strong></td>
+                            <td><?= e($pengeluaran["catatan"] ?: "-") ?></td>
+                            <td class="money"><?= rupiah($pengeluaran["jumlah"]) ?></td>
+                        </tr>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <tr><td colspan="4" class="empty-state">Belum ada catatan pengeluaran.</td></tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="footer-note">Wishlist PJK &mdash; Catat kebutuhan, rencanakan keinginan, kelola pengeluaran.</div>
+
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const labelGrafik = <?= json_encode($label_grafik) ?>;
@@ -622,12 +769,13 @@ new Chart(document.getElementById("grafikPengeluaran"), {
     data: {
         labels: labelGrafik,
         datasets: [{
-            label: "Pengeluaran (Rp)",
+            label: "Pengeluaran",
             data: nilaiGrafik,
-            borderColor: "#d8b45a",
-            backgroundColor: "rgba(216, 180, 90, 0.15)",
+            borderColor: "#d8ad55",
+            backgroundColor: "rgba(216, 173, 85, 0.13)",
             fill: true,
             tension: 0.35,
+            borderWidth: 3,
             pointRadius: 4,
             pointHoverRadius: 6
         }]
@@ -655,13 +803,10 @@ new Chart(document.getElementById("grafikPengeluaran"), {
                 },
                 grid: { color: "#edf0f5" }
             },
-            x: {
-                grid: { display: false }
-            }
+            x: { grid: { display: false } }
         }
     }
 });
 </script>
-
 </body>
 </html>

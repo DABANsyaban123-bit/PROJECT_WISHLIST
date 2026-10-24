@@ -2,18 +2,34 @@
 <?php
 include_once __DIR__ . "/../config.php";
 
-function aman($nilai) {
-    return htmlspecialchars((string)($nilai ?? ""), ENT_QUOTES, "UTF-8");
+function e($value) {
+    return htmlspecialchars((string) $value, ENT_QUOTES, "UTF-8");
 }
 
-// Ambil filter dari URL
-$cari = trim($_GET["cari"] ?? "");
-$filter_jenis = $_GET["jenis"] ?? "";
-$filter_kategori = $_GET["kategori"] ?? "";
-$filter_status = $_GET["status"] ?? "";
+function rupiah($angka) {
+    return "Rp " . number_format((float) $angka, 0, ",", ".");
+}
 
-// Susun filter pencarian
-$where = "
+$cari = trim($_GET["cari"] ?? "");
+$kategori = trim($_GET["kategori"] ?? "");
+$status = trim($_GET["status"] ?? "");
+$jenis_filter = trim($_GET["jenis"] ?? "");
+
+$jenis_valid = ["Kebutuhan", "Keinginan"];
+$status_valid = ["Belum Dibeli", "Sudah Dibeli"];
+
+if (!in_array($jenis_filter, $jenis_valid, true)) {
+    $jenis_filter = "";
+}
+
+if (!in_array($status, $status_valid, true)) {
+    $status = "";
+}
+
+// Hanya barang aktif yang belum dihubungkan dengan pengeluaran.
+$sql = "
+    SELECT b.*
+    FROM barang b
     WHERE NOT EXISTS (
         SELECT 1
         FROM pengeluaran p
@@ -21,64 +37,101 @@ $where = "
     )
 ";
 
+$conditions = [];
+$params = [];
+$types = "";
+
 if ($cari !== "") {
-    $cari_sql = mysqli_real_escape_string($koneksi, $cari);
-    $where .= " AND b.nama_barang LIKE '%$cari_sql%'";
+    $conditions[] = "b.nama_barang LIKE ?";
+    $params[] = "%" . $cari . "%";
+    $types .= "s";
 }
 
-if (in_array($filter_jenis, ["Kebutuhan", "Keinginan"], true)) {
-    $jenis_sql = mysqli_real_escape_string($koneksi, $filter_jenis);
-    $where .= " AND b.jenis = '$jenis_sql'";
+if ($kategori !== "") {
+    $conditions[] = "b.kategori = ?";
+    $params[] = $kategori;
+    $types .= "s";
 }
 
-if ($filter_kategori !== "") {
-    $kategori_sql = mysqli_real_escape_string($koneksi, $filter_kategori);
-    $where .= " AND b.kategori = '$kategori_sql'";
+if ($status !== "") {
+    $conditions[] = "b.status = ?";
+    $params[] = $status;
+    $types .= "s";
 }
 
-if (in_array($filter_status, ["Belum Dibeli", "Sudah Dibeli"], true)) {
-    $status_sql = mysqli_real_escape_string($koneksi, $filter_status);
-    $where .= " AND b.status = '$status_sql'";
+if ($jenis_filter !== "") {
+    $conditions[] = "b.jenis = ?";
+    $params[] = $jenis_filter;
+    $types .= "s";
 }
 
-// Ambil daftar barang aktif sesuai filter
-$query_barang = mysqli_query($koneksi, "
-    SELECT b.id_barang, b.nama_barang, b.kategori, b.jenis,
-           b.harga, b.status
-    FROM barang b
-    $where
-    ORDER BY
-        CASE WHEN b.jenis = 'Kebutuhan' THEN 1 ELSE 2 END,
-        b.id_barang DESC
-");
-
-if (!$query_barang) {
-    die("Gagal mengambil data barang: " . aman(mysqli_error($koneksi)));
+if (!empty($conditions)) {
+    $sql .= " AND " . implode(" AND ", $conditions);
 }
 
-// Pisahkan hasil menjadi dua kelompok
-$daftar_kebutuhan = [];
-$daftar_keinginan = [];
+$sql .= " ORDER BY b.id_barang DESC";
 
-while ($barang = mysqli_fetch_assoc($query_barang)) {
-    if (($barang["jenis"] ?? "Keinginan") === "Kebutuhan") {
-        $daftar_kebutuhan[] = $barang;
+$stmt = mysqli_prepare($koneksi, $sql);
+
+if (!empty($params)) {
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+}
+
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+
+$kebutuhan = [];
+$keinginan = [];
+
+while ($barang = mysqli_fetch_assoc($result)) {
+    if ($barang["jenis"] === "Kebutuhan") {
+        $kebutuhan[] = $barang;
     } else {
-        $daftar_keinginan[] = $barang;
+        $keinginan[] = $barang;
     }
 }
 
-$total_kebutuhan = count($daftar_kebutuhan);
-$total_keinginan = count($daftar_keinginan);
-$total_barang = $total_kebutuhan + $total_keinginan;
+mysqli_stmt_close($stmt);
 
-// Ambil pilihan kategori dari database
-$query_kategori = mysqli_query($koneksi, "
-    SELECT DISTINCT kategori
-    FROM barang
-    WHERE kategori IS NOT NULL AND kategori <> ''
-    ORDER BY kategori ASC
+// Statistik barang aktif, tidak terpengaruh filter pencarian.
+$query_statistik = mysqli_query($koneksi, "
+    SELECT
+        COUNT(*) AS total,
+        COALESCE(SUM(status = 'Sudah Dibeli'), 0) AS sudah,
+        COALESCE(SUM(status = 'Belum Dibeli'), 0) AS belum,
+        COALESCE(SUM(jenis = 'Kebutuhan'), 0) AS kebutuhan,
+        COALESCE(SUM(jenis = 'Keinginan'), 0) AS keinginan
+    FROM barang b
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM pengeluaran p
+        WHERE p.id_barang = b.id_barang
+    )
 ");
+
+$stat = mysqli_fetch_assoc($query_statistik);
+
+$total_barang = (int) $stat["total"];
+$total_sudah = (int) $stat["sudah"];
+$total_belum = (int) $stat["belum"];
+$total_kebutuhan = (int) $stat["kebutuhan"];
+$total_keinginan = (int) $stat["keinginan"];
+
+// Kategori yang masih mempunyai barang aktif.
+$query_kategori = mysqli_query($koneksi, "
+    SELECT DISTINCT b.kategori
+    FROM barang b
+    WHERE b.kategori IS NOT NULL
+      AND b.kategori <> ''
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pengeluaran p
+          WHERE p.id_barang = b.id_barang
+      )
+    ORDER BY b.kategori ASC
+");
+
+$query_error = "";
 ?>
 
 <!DOCTYPE html>
@@ -86,431 +139,515 @@ $query_kategori = mysqli_query($koneksi, "
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daftar Barang | Wishlist PJK</title>
+    <title>Daftar Barang | Wishlist</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../STYLES.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
-    <style>
-        :root {
-            --navy: #101b35;
-            --navy-light: #192847;
-            --gold: #d8b45a;
-            --bg: #f4f6fa;
-            --muted: #758096;
-        }
+    
+<style>
+    :root {
+        --navy: #263f70;
+        --navy-dark: #20365f;
+        --gold: #a77b2e;
+        --cream: #f7f4ec;
+        --muted: #7b879b;
+        --border: #edf0f5;
+    }
 
-        body {
-            background: var(--bg);
-            color: #202b40;
-            font-family: Arial, sans-serif;
-        }
+    body {
+        background: var(--cream) !important;
+        color: #171717;
+        font-family: Arial, Helvetica, sans-serif;
+    }
 
-        .app-navbar {
-            background: var(--navy);
-            padding: 15px 0;
-        }
+    .navbar-custom {
+        background: var(--navy) !important;
+        min-height: 82px;
+        padding: 12px 0 !important;
+        box-shadow: 0 3px 12px rgba(30, 48, 80, .08);
+    }
 
-        .brand {
-            color: #fff;
-            font-weight: 800;
-            font-size: 21px;
-            text-decoration: none;
-        }
+    .navbar-brand {
+        font-size: 23px !important;
+        font-weight: 800 !important;
+        color: white !important;
+    }
 
-        .brand span {
-            color: var(--gold);
-        }
+    .brand-mark {
+        display: none !important;
+    }
 
-        .nav-link-custom {
-            color: #dbe2f0;
-            text-decoration: none;
-            margin-left: 20px;
-            font-size: 14px;
-        }
+    .navbar-custom .nav-link {
+        color: white !important;
+        font-size: 16px;
+        padding: 14px 18px !important;
+        margin-left: 8px !important;
+        border-radius: 11px !important;
+        transition: background .2s ease;
+    }
 
-        .nav-link-custom:hover,
-        .nav-link-custom.active {
-            color: var(--gold);
-        }
+    .navbar-custom .nav-link:hover,
+    .navbar-custom .nav-link.active {
+        background: rgba(255, 255, 255, .14) !important;
+    }
 
+    .page-container {
+        max-width: 1600px !important;
+        padding: 48px 30px 50px !important;
+    }
+
+    .page-heading {
+        margin-bottom: 34px !important;
+    }
+
+    .page-heading h1 {
+        color: var(--navy) !important;
+        font-size: 36px !important;
+        font-weight: 800 !important;
+        letter-spacing: -.8px;
+    }
+
+    .page-heading p {
+        color: var(--muted) !important;
+        font-size: 16px !important;
+        line-height: 1.7;
+    }
+
+    .btn-gold {
+        background: var(--navy) !important;
+        border-color: var(--navy) !important;
+        color: white !important;
+        border-radius: 13px !important;
+        padding: 17px 23px !important;
+        font-size: 16px;
+        font-weight: 700;
+        box-shadow: none !important;
+    }
+
+    .btn-gold:hover {
+        background: var(--navy-dark) !important;
+        border-color: var(--navy-dark) !important;
+        color: white !important;
+        transform: translateY(-1px);
+    }
+
+    .stat-card,
+    .panel {
+        background: white !important;
+        border: 1px solid #f0f1f4 !important;
+        border-radius: 23px !important;
+        box-shadow: 0 12px 35px rgba(35, 50, 80, .045) !important;
+    }
+
+    .stat-card {
+        padding: 28px !important;
+        min-height: 175px;
+        align-items: flex-start !important;
+        flex-wrap: wrap;
+        gap: 18px !important;
+    }
+
+    .stat-icon {
+        width: 55px !important;
+        height: 55px !important;
+        border-radius: 16px !important;
+        font-size: 23px !important;
+    }
+
+    .icon-navy {
+        background: #edf2fb !important;
+        color: var(--navy) !important;
+    }
+
+    .icon-gold {
+        background: #fbf2df !important;
+        color: #b17c21 !important;
+    }
+
+    .icon-green {
+        background: #e6f5ec !important;
+        color: #228452 !important;
+    }
+
+    .icon-blue {
+        background: #eaf1fc !important;
+        color: #31588d !important;
+    }
+
+    .stat-label {
+        font-size: 15px !important;
+        color: #758195 !important;
+    }
+
+    .stat-number {
+        font-size: 29px !important;
+        color: var(--navy) !important;
+        font-weight: 800 !important;
+    }
+
+    .panel {
+        padding: 28px !important;
+        margin-bottom: 28px !important;
+    }
+
+    .panel-heading {
+        margin-bottom: 24px !important;
+    }
+
+    .panel-heading h5 {
+        font-size: 21px !important;
+        color: var(--navy) !important;
+        font-weight: 800 !important;
+    }
+
+    .panel-heading a {
+        color: var(--navy) !important;
+        font-weight: 700;
+    }
+
+    .form-control,
+    .form-select {
+        min-height: 52px !important;
+        border: 1px solid #d9dfeb !important;
+        border-radius: 13px !important;
+        padding: 12px 15px !important;
+        font-size: 15px !important;
+        background-color: white !important;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #7288b2 !important;
+        box-shadow: 0 0 0 3px rgba(38, 63, 112, .09) !important;
+    }
+
+    .btn-filter {
+        background: var(--navy) !important;
+        border-radius: 12px !important;
+        min-height: 52px !important;
+    }
+
+    .btn-reset {
+        border-radius: 12px !important;
+        min-height: 52px !important;
+    }
+
+    .table-responsive {
+        border-radius: 14px;
+    }
+
+    .table {
+        color: #161616 !important;
+    }
+
+    .table thead th {
+        background: #f6f7fa !important;
+        color: var(--navy) !important;
+        padding: 20px 18px !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        border-bottom: 1px solid #e3e7ef !important;
+    }
+
+    .table tbody td {
+        padding: 19px 18px !important;
+        font-size: 14px !important;
+        border-bottom: 1px solid #edf0f4 !important;
+    }
+
+    .table tbody tr:last-child td {
+        border-bottom: none !important;
+    }
+
+    .table tbody tr:hover {
+        background: #fbfcfe;
+    }
+
+    .money {
+        color: #171717 !important;
+        font-weight: 800 !important;
+    }
+
+    .badge-status {
+        padding: 8px 12px !important;
+        border-radius: 9px !important;
+    }
+
+    .section-title h5 {
+        color: var(--navy) !important;
+        font-size: 19px !important;
+    }
+
+    .section-icon {
+        border-radius: 13px !important;
+    }
+
+    .section-count {
+        border-radius: 10px !important;
+        padding: 8px 12px !important;
+    }
+
+    .action-btn {
+        width: auto !important;
+        min-width: 48px;
+        height: 39px !important;
+        padding: 0 11px;
+        border-radius: 10px !important;
+        font-size: 14px;
+        background: white !important;
+    }
+
+    .edit-btn {
+        border-color: var(--navy) !important;
+        color: var(--navy) !important;
+    }
+
+    .delete-btn {
+        border-color: #ef4444 !important;
+        color: #ef4444 !important;
+    }
+
+    .edit-btn:hover {
+        background: #edf2fb !important;
+    }
+
+    .delete-btn:hover {
+        background: #fff0f0 !important;
+    }
+
+    .progress {
+        height: 12px !important;
+        border-radius: 20px !important;
+    }
+
+    .progress-bar {
+        background: var(--gold) !important;
+    }
+
+    .type-summary {
+        border-radius: 14px !important;
+        padding: 19px !important;
+        background: #fcfcfd !important;
+    }
+
+    .footer-note {
+        color: var(--muted);
+        padding: 18px 0;
+    }
+
+    @media (max-width: 767px) {
         .page-container {
-            max-width: 1250px;
-            margin: 0 auto;
-            padding: 32px 20px 50px;
+            padding: 28px 15px !important;
         }
 
-        .page-title {
-            font-size: clamp(25px, 4vw, 32px);
-            font-weight: 800;
-            color: var(--navy);
-            margin-bottom: 7px;
+        .page-heading h1 {
+            font-size: 29px !important;
         }
 
-        .muted {
-            color: var(--muted);
+        .stat-card {
+            min-height: 140px;
+            padding: 18px !important;
+            gap: 12px !important;
         }
 
-        .summary-card,
-        .panel {
-            background: #fff;
-            border: 1px solid #e8ecf3;
-            border-radius: 16px;
-            box-shadow: 0 5px 20px rgba(16, 27, 53, .04);
-        }
-
-        .summary-card {
-            padding: 20px;
-            height: 100%;
-        }
-
-        .summary-label {
-            font-size: 13px;
-            color: var(--muted);
-            margin-bottom: 9px;
-        }
-
-        .summary-number {
-            color: var(--navy);
-            font-size: 27px;
-            font-weight: 800;
-        }
-
-        .summary-icon {
-            width: 43px;
-            height: 43px;
-            display: grid;
-            place-items: center;
-            border-radius: 12px;
-            background: #f4edd9;
-            font-size: 21px;
+        .stat-number {
+            font-size: 22px !important;
         }
 
         .panel {
-            padding: 23px;
-            margin-top: 24px;
+            padding: 18px !important;
         }
 
-        .panel-title {
-            color: var(--navy);
-            font-size: 19px;
-            font-weight: 800;
-            margin: 0;
-        }
-
-        .btn-gold {
-            background: var(--gold);
-            color: var(--navy);
-            border: none;
-            font-weight: 700;
-        }
-
-        .btn-gold:hover {
-            background: #caa343;
-            color: var(--navy);
-        }
-
-        .btn-navy {
-            background: var(--navy);
-            color: #fff;
-            border: none;
-        }
-
-        .btn-navy:hover {
-            background: var(--navy-light);
-            color: #fff;
-        }
-
-        .filter-card {
-            background: #fff;
-            border: 1px solid #e8ecf3;
-            border-radius: 16px;
-            padding: 22px;
-            margin-top: 24px;
-        }
-
-        .form-label {
-            color: #35415a;
-            font-size: 13px;
-            font-weight: 700;
-        }
-
-        .form-control,
-        .form-select {
-            min-height: 43px;
-            border-color: #dfe4ed;
-            border-radius: 9px;
-        }
-
-        .form-control:focus,
-        .form-select:focus {
-            border-color: var(--gold);
-            box-shadow: 0 0 0 3px rgba(216, 180, 90, .15);
-        }
-
-        .table {
-            vertical-align: middle;
-            margin-bottom: 0;
-        }
-
-        .table thead th {
-            color: #778198;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            white-space: nowrap;
-            border-bottom: 1px solid #e8ecf3;
-        }
-
+        .table thead th,
         .table tbody td {
-            padding-top: 15px;
-            padding-bottom: 15px;
-            border-color: #edf0f5;
+            padding: 14px 12px !important;
         }
+    }
+</style>
 
-        .badge-type {
-            background: #f4edd9;
-            color: #806019;
-            padding: 7px 10px;
-            border-radius: 20px;
-        }
-
-        .badge-bought {
-            background: #dff5e8;
-            color: #167343;
-        }
-
-        .badge-not-bought {
-            background: #fff0d5;
-            color: #96610b;
-        }
-
-        .section-icon {
-            width: 42px;
-            height: 42px;
-            display: grid;
-            place-items: center;
-            background: #f4edd9;
-            border-radius: 12px;
-            font-size: 21px;
-        }
-
-        .count-badge {
-            background: #eef1f6;
-            color: #46516a;
-            padding: 6px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 35px 12px !important;
-            color: var(--muted);
-        }
-
-        .action-btn {
-            padding: 6px 10px;
-            border-radius: 7px;
-            font-size: 12px;
-            text-decoration: none;
-            display: inline-block;
-            font-weight: 700;
-        }
-
-        .edit-btn {
-            color: #344b75;
-            background: #edf2fb;
-        }
-
-        .delete-btn {
-            color: #b42332;
-            background: #fff0f1;
-            border: none;
-        }
-
-        @media (max-width: 600px) {
-            .page-container {
-                padding: 22px 13px 35px;
-            }
-
-            .panel,
-            .filter-card {
-                padding: 16px;
-            }
-
-            .summary-card {
-                padding: 16px;
-            }
-
-            .summary-number {
-                font-size: 23px;
-            }
-
-            .nav-link-custom {
-                margin-left: 10px;
-            }
-        }
-    </style>
 </head>
 
 <body>
 
-<nav class="app-navbar">
-    <div class="container d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <a class="brand" href="index.php">Wishlist <span></span></a>
+<nav class="navbar navbar-expand-lg navbar-custom">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand" href="index.php">
+            <span class="brand-mark"><i class="bi bi-bag-heart-fill"></i></span>
+            Wishlist
+        </a>
 
-        <div class="d-flex align-items-center flex-wrap">
-            <a class="nav-link-custom" href="index.php">Dashboard</a>
-            <a class="nav-link-custom active" href="daftar.php">Daftar Barang</a>
-            <a class="nav-link-custom" href="../pengeluaran/pengeluaran.php">Pengeluaran</a>
+        <button class="navbar-toggler bg-light" type="button"
+                data-bs-toggle="collapse" data-bs-target="#navbarMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarMenu">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="index.php">
+                        <i class="bi bi-grid-1x2 me-1"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="daftar.php">
+                        <i class="bi bi-list-check me-1"></i> Daftar Barang
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="../pengeluaran/pengeluaran.php">
+                        <i class="bi bi-wallet2 me-1"></i> Pengeluaran
+                    </a>
+                </li>
+            </ul>
         </div>
     </div>
 </nav>
 
 <main class="page-container">
 
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="page-heading">
         <div>
-            <h1 class="page-title">Daftar Barang</h1>
-            <p class="muted mb-0">
-                Kelola kebutuhan dan keinginanmu dalam satu tempat.
-            </p>
+            <h1>Daftar Barang</h1>
+            <p>Kelola wishlist dan bedakan barang yang kamu butuhkan dengan yang kamu inginkan.</p>
         </div>
 
-        <a href="tambah.php" class="btn btn-gold px-4 py-2">
-            + Tambah Barang
+        <a href="tambah.php" class="btn btn-gold">
+            <i class="bi bi-plus-lg me-1"></i> Tambah Barang
         </a>
     </div>
 
-    <div class="row g-3 mt-2">
-        <div class="col-12 col-md-4">
-            <div class="summary-card">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="summary-label">Total Barang Aktif</div>
-                        <div class="summary-number"><?= $total_barang ?></div>
-                    </div>
-                    <div class="summary-icon">📦</div>
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon icon-navy"><i class="bi bi-bag"></i></div>
+                <div>
+                    <div class="stat-label">Barang Aktif</div>
+                    <div class="stat-number"><?= $total_barang ?></div>
                 </div>
             </div>
         </div>
 
-        <div class="col-6 col-md-4">
-            <div class="summary-card">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="summary-label">Kebutuhan</div>
-                        <div class="summary-number"><?= $total_kebutuhan ?></div>
-                    </div>
-                    <div class="summary-icon">🎯</div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon icon-green"><i class="bi bi-check-circle"></i></div>
+                <div>
+                    <div class="stat-label">Sudah Dibeli</div>
+                    <div class="stat-number"><?= $total_sudah ?></div>
                 </div>
             </div>
         </div>
 
-        <div class="col-6 col-md-4">
-            <div class="summary-card">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="summary-label">Keinginan</div>
-                        <div class="summary-number"><?= $total_keinginan ?></div>
-                    </div>
-                    <div class="summary-icon">⭐</div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon icon-gold"><i class="bi bi-shield-check"></i></div>
+                <div>
+                    <div class="stat-label">Kebutuhan</div>
+                    <div class="stat-number"><?= $total_kebutuhan ?></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-icon icon-blue"><i class="bi bi-stars"></i></div>
+                <div>
+                    <div class="stat-label">Keinginan</div>
+                    <div class="stat-number"><?= $total_keinginan ?></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="filter-card">
-        <h2 class="panel-title mb-3">Cari dan Filter Barang</h2>
+    <section class="panel">
+        <div class="panel-heading">
+            <h5><i class="bi bi-funnel me-2"></i>Filter Barang</h5>
+        </div>
 
-        <form method="GET" action="daftar.php">
-            <div class="row g-3">
-                <div class="col-12 col-md-6 col-lg-3">
-                    <label for="cari" class="form-label">Nama Barang</label>
-                    <input
-                        type="text"
-                        class="form-control"
-                        id="cari"
-                        name="cari"
-                        placeholder="Cari nama barang..."
-                        value="<?= aman($cari) ?>"
-                    >
+        <form action="daftar.php" method="GET">
+            <div class="row g-3 align-items-end">
+
+                <div class="col-lg-4 col-md-6">
+                    <label class="filter-label" for="cari">Cari nama barang</label>
+                    <input type="text" class="form-control" id="cari"
+                           name="cari" placeholder="Contoh: Tas, Laptop..."
+                           value="<?= e($cari) ?>">
                 </div>
 
-                <div class="col-12 col-md-6 col-lg-3">
-                    <label for="jenis" class="form-label">Jenis</label>
+                <div class="col-lg-2 col-md-6">
+                    <label class="filter-label" for="jenis">Jenis</label>
                     <select class="form-select" id="jenis" name="jenis">
-                        <option value="">Semua Jenis</option>
-                        <option value="Kebutuhan" <?= $filter_jenis === "Kebutuhan" ? "selected" : "" ?>>
+                        <option value="">Semua jenis</option>
+                        <option value="Kebutuhan" <?= $jenis_filter === "Kebutuhan" ? "selected" : "" ?>>
                             Kebutuhan
                         </option>
-                        <option value="Keinginan" <?= $filter_jenis === "Keinginan" ? "selected" : "" ?>>
+                        <option value="Keinginan" <?= $jenis_filter === "Keinginan" ? "selected" : "" ?>>
                             Keinginan
                         </option>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-6 col-lg-3">
-                    <label for="kategori" class="form-label">Kategori</label>
+                <div class="col-lg-2 col-md-6">
+                    <label class="filter-label" for="kategori">Kategori</label>
                     <select class="form-select" id="kategori" name="kategori">
-                        <option value="">Semua Kategori</option>
-
-                        <?php while ($kategori = mysqli_fetch_assoc($query_kategori)): ?>
-                            <option
-                                value="<?= aman($kategori["kategori"]) ?>"
-                                <?= $filter_kategori === $kategori["kategori"] ? "selected" : "" ?>
-                            >
-                                <?= aman($kategori["kategori"]) ?>
+                        <option value="">Semua kategori</option>
+                        <?php while ($kat = mysqli_fetch_assoc($query_kategori)): ?>
+                            <option value="<?= e($kat["kategori"]) ?>"
+                                <?= $kategori === $kat["kategori"] ? "selected" : "" ?>>
+                                <?= e($kat["kategori"]) ?>
                             </option>
                         <?php endwhile; ?>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-6 col-lg-3">
-                    <label for="status" class="form-label">Status</label>
+                <div class="col-lg-2 col-md-6">
+                    <label class="filter-label" for="status">Status</label>
                     <select class="form-select" id="status" name="status">
-                        <option value="">Semua Status</option>
-                        <option value="Belum Dibeli" <?= $filter_status === "Belum Dibeli" ? "selected" : "" ?>>
+                        <option value="">Semua status</option>
+                        <option value="Belum Dibeli" <?= $status === "Belum Dibeli" ? "selected" : "" ?>>
                             Belum Dibeli
                         </option>
-                        <option value="Sudah Dibeli" <?= $filter_status === "Sudah Dibeli" ? "selected" : "" ?>>
+                        <option value="Sudah Dibeli" <?= $status === "Sudah Dibeli" ? "selected" : "" ?>>
                             Sudah Dibeli
                         </option>
                     </select>
                 </div>
 
-                <div class="col-12 d-flex gap-2 flex-wrap">
-                    <button type="submit" class="btn btn-navy px-4">
-                        Cari Barang
+                <div class="col-lg-2 col-md-12 d-flex gap-2">
+                    <button type="submit" class="btn btn-filter flex-grow-1">
+                        <i class="bi bi-search me-1"></i> Cari
                     </button>
-                    <a href="daftar.php" class="btn btn-outline-secondary px-4">
-                        Reset Filter
+                    <a href="daftar.php" class="btn btn-reset" title="Reset filter">
+                        <i class="bi bi-arrow-counterclockwise"></i>
                     </a>
                 </div>
+
             </div>
         </form>
-    </div>
+    </section>
 
     <!-- BAGIAN KEBUTUHAN -->
     <section class="panel">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="section-icon">🎯</div>
+        <div class="panel-heading">
+            <div class="section-title">
+                <div class="section-icon icon-gold">
+                    <i class="bi bi-shield-check"></i>
+                </div>
                 <div>
-                    <h2 class="panel-title">Kebutuhan</h2>
-                    <p class="muted small mb-0">Barang yang kamu perlukan.</p>
+                    <h5>Daftar Kebutuhan</h5>
+                    <p>Barang yang kamu prioritaskan untuk dimiliki.</p>
                 </div>
             </div>
-
-            <span class="count-badge"><?= $total_kebutuhan ?> barang</span>
+            <span class="section-count"><?= count($kebutuhan) ?> barang</span>
         </div>
 
         <div class="table-responsive">
             <table class="table">
                 <thead>
                     <tr>
+                        <th>No.</th>
                         <th>Nama Barang</th>
                         <th>Kategori</th>
                         <th>Harga</th>
@@ -520,62 +657,38 @@ $query_kategori = mysqli_query($koneksi, "
                 </thead>
 
                 <tbody>
-                <?php if ($total_kebutuhan > 0): ?>
-                    <?php foreach ($daftar_kebutuhan as $barang): ?>
+                <?php if (count($kebutuhan) > 0): ?>
+                    <?php foreach ($kebutuhan as $i => $barang): ?>
                         <tr>
-                            <td class="fw-semibold">
-                                <?= aman($barang["nama_barang"]) ?>
-                            </td>
-
-                            <td><?= aman($barang["kategori"]) ?></td>
-
-                            <td class="fw-semibold">
-                                Rp <?= number_format((float)$barang["harga"], 0, ",", ".") ?>
-                            </td>
-
+                            <td><?= $i + 1 ?></td>
+                            <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
+                            <td><?= e($barang["kategori"]) ?></td>
+                            <td class="money"><?= rupiah($barang["harga"]) ?></td>
                             <td>
-                                <?php if ($barang["status"] === "Sudah Dibeli"): ?>
-                                    <span class="badge badge-bought">Sudah Dibeli</span>
-                                <?php else: ?>
-                                    <span class="badge badge-not-bought">Belum Dibeli</span>
-                                <?php endif; ?>
+                                <span class="badge-status <?= $barang["status"] === "Sudah Dibeli" ? "status-sudah" : "status-belum" ?>">
+                                    <?= e($barang["status"]) ?>
+                                </span>
                             </td>
-
-                            <td>
-                                <div class="d-flex gap-2">
-                                    <a
-                                        class="action-btn edit-btn"
-                                        href="edit.php?id=<?= (int)$barang["id_barang"] ?>"
-                                    >
-                                        Edit
-                                    </a>
-
-                                    <form
-                                        method="POST"
-                                        action="hapus.php"
-                                        onsubmit="return confirm('Yakin ingin menghapus barang ini?')"
-                                    >
-                                        <input
-                                            type="hidden"
-                                            name="id_barang"
-                                            value="<?= (int)$barang["id_barang"] ?>"
-                                        >
-                                        <button type="submit" class="action-btn delete-btn">
-                                            Hapus
-                                        </button>
-                                    </form>
-                                </div>
+                            <td class="text-nowrap">
+                                <a class="action-btn edit-btn"
+                                   href="edit.php?id=<?= (int) $barang["id_barang"] ?>"
+                                   title="Edit barang">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                                <a class="action-btn delete-btn"
+                                   href="hapus.php?id=<?= (int) $barang["id_barang"] ?>"
+                                   title="Hapus barang"
+                                   onclick="return confirm('Yakin ingin menghapus barang ini?')">
+                                    <i class="bi bi-trash3"></i>
+                                </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="5" class="empty-state">
-                            Belum ada barang kebutuhan yang cocok dengan filter.
-                            <br>
-                            <a href="tambah.php" class="section-link d-inline-block mt-2">
-                                + Tambahkan kebutuhan
-                            </a>
+                        <td colspan="6" class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            Belum ada kebutuhan yang sesuai dengan filter.
                         </td>
                     </tr>
                 <?php endif; ?>
@@ -586,22 +699,24 @@ $query_kategori = mysqli_query($koneksi, "
 
     <!-- BAGIAN KEINGINAN -->
     <section class="panel">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="section-icon">⭐</div>
+        <div class="panel-heading">
+            <div class="section-title">
+                <div class="section-icon icon-blue">
+                    <i class="bi bi-stars"></i>
+                </div>
                 <div>
-                    <h2 class="panel-title">Keinginan</h2>
-                    <p class="muted small mb-0">Barang yang ingin kamu miliki.</p>
+                    <h5>Daftar Keinginan</h5>
+                    <p>Barang yang ingin kamu miliki setelah kebutuhan terpenuhi.</p>
                 </div>
             </div>
-
-            <span class="count-badge"><?= $total_keinginan ?> barang</span>
+            <span class="section-count"><?= count($keinginan) ?> barang</span>
         </div>
 
         <div class="table-responsive">
             <table class="table">
                 <thead>
                     <tr>
+                        <th>No.</th>
                         <th>Nama Barang</th>
                         <th>Kategori</th>
                         <th>Harga</th>
@@ -611,62 +726,38 @@ $query_kategori = mysqli_query($koneksi, "
                 </thead>
 
                 <tbody>
-                <?php if ($total_keinginan > 0): ?>
-                    <?php foreach ($daftar_keinginan as $barang): ?>
+                <?php if (count($keinginan) > 0): ?>
+                    <?php foreach ($keinginan as $i => $barang): ?>
                         <tr>
-                            <td class="fw-semibold">
-                                <?= aman($barang["nama_barang"]) ?>
-                            </td>
-
-                            <td><?= aman($barang["kategori"]) ?></td>
-
-                            <td class="fw-semibold">
-                                Rp <?= number_format((float)$barang["harga"], 0, ",", ".") ?>
-                            </td>
-
+                            <td><?= $i + 1 ?></td>
+                            <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
+                            <td><?= e($barang["kategori"]) ?></td>
+                            <td class="money"><?= rupiah($barang["harga"]) ?></td>
                             <td>
-                                <?php if ($barang["status"] === "Sudah Dibeli"): ?>
-                                    <span class="badge badge-bought">Sudah Dibeli</span>
-                                <?php else: ?>
-                                    <span class="badge badge-not-bought">Belum Dibeli</span>
-                                <?php endif; ?>
+                                <span class="badge-status <?= $barang["status"] === "Sudah Dibeli" ? "status-sudah" : "status-belum" ?>">
+                                    <?= e($barang["status"]) ?>
+                                </span>
                             </td>
-
-                            <td>
-                                <div class="d-flex gap-2">
-                                    <a
-                                        class="action-btn edit-btn"
-                                        href="edit.php?id=<?= (int)$barang["id_barang"] ?>"
-                                    >
-                                        Edit
-                                    </a>
-
-                                    <form
-                                        method="POST"
-                                        action="hapus.php"
-                                        onsubmit="return confirm('Yakin ingin menghapus barang ini?')"
-                                    >
-                                        <input
-                                            type="hidden"
-                                            name="id_barang"
-                                            value="<?= (int)$barang["id_barang"] ?>"
-                                        >
-                                        <button type="submit" class="action-btn delete-btn">
-                                            Hapus
-                                        </button>
-                                    </form>
-                                </div>
+                            <td class="text-nowrap">
+                                <a class="action-btn edit-btn"
+                                   href="edit.php?id=<?= (int) $barang["id_barang"] ?>"
+                                   title="Edit barang">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                                <a class="action-btn delete-btn"
+                                   href="hapus.php?id=<?= (int) $barang["id_barang"] ?>"
+                                   title="Hapus barang"
+                                   onclick="return confirm('Yakin ingin menghapus barang ini?')">
+                                    <i class="bi bi-trash3"></i>
+                                </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="5" class="empty-state">
-                            Belum ada barang keinginan yang cocok dengan filter.
-                            <br>
-                            <a href="tambah.php" class="section-link d-inline-block mt-2">
-                                + Tambahkan keinginan
-                            </a>
+                        <td colspan="6" class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            Belum ada keinginan yang sesuai dengan filter.
                         </td>
                     </tr>
                 <?php endif; ?>
@@ -675,11 +766,12 @@ $query_kategori = mysqli_query($koneksi, "
         </div>
     </section>
 
-    <footer class="text-center muted small mt-4">
-        Wishlist PJK &copy; <?= date("Y") ?>
-    </footer>
+    <div class="footer-note">
+        Wishlist PJK &mdash; Barang yang sudah dicatat sebagai pengeluaran tidak ditampilkan lagi di wishlist aktif.
+    </div>
 
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

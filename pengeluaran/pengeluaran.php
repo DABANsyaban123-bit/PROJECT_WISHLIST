@@ -55,7 +55,6 @@ if (!$query_pengeluaran) {
         rel="stylesheet">
 
     <link rel="stylesheet" href="../STYLES.css">
-    <link rel="stylesheet" href="../UI.css">
 
     <style>
         body {
@@ -272,6 +271,7 @@ if (!$query_pengeluaran) {
             }
         }
     </style>
+    <link rel="stylesheet" href="../UI.css">
 </head>
 
 <body>

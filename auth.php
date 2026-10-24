@@ -3,6 +3,7 @@
 if (session_status() !== PHP_SESSION_ACTIVE) {
     ini_set("session.use_strict_mode", "1");
     session_set_cookie_params([
+        "path" => "/",
         "httponly" => true,
         "secure" => !empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off",
         "samesite" => "Lax",
@@ -27,7 +28,7 @@ function auth_csrf_token(): string
     return $_SESSION["csrf_token"];
 }
 
-function auth_verify_csrf(?string $token): bool
+function auth_verify_csrf(mixed $token): bool
 {
     return isset($_SESSION["csrf_token"])
         && is_string($token)

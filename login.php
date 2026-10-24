@@ -11,8 +11,10 @@ $error = "";
 $username = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $username = trim($_POST["username"] ?? "");
+    $username_input = $_POST["username"] ?? "";
+    $username = is_string($username_input) ? trim($username_input) : "";
     $password = $_POST["password"] ?? "";
+    $password = is_string($password) ? $password : "";
 
     if (!auth_verify_csrf($_POST["csrf_token"] ?? null)) {
         $error = "Sesi formulir kedaluwarsa. Silakan muat ulang halaman.";
@@ -47,6 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 }
 
 $csrf_token = auth_csrf_token();
+$setup_complete = ($_GET["setup"] ?? "") === "complete";
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -79,6 +82,10 @@ $csrf_token = auth_csrf_token();
                 <span class="auth-kicker">Selamat datang kembali</span>
                 <h2>Masuk ke akunmu</h2>
                 <p class="auth-description">Masukkan detail akun untuk melanjutkan.</p>
+
+                <?php if ($setup_complete): ?>
+                    <div class="alert alert-success" role="status">Akun berhasil dibuat. Silakan masuk.</div>
+                <?php endif; ?>
 
                 <?php if ($error !== ""): ?>
                     <div class="alert alert-danger" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, "UTF-8") ?></div>

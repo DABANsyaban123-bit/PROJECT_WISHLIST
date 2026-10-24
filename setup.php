@@ -93,7 +93,7 @@ $csrf_token = auth_csrf_token();
                     <div class="mb-3">
                         <label for="username" class="form-label">Nama pengguna</label>
                         <input class="form-control" type="text" id="username" name="username" maxlength="50"
-                               autocomplete="username" value="<?= htmlspecialchars($username, ENT_QUOTES, "UTF-8") ?>" required autofocus>
+                               autocomplete="username" value="<?= htmlspecialchars($username, ENT_QUOTES, "UTF-8") ?>" required>
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label">Kata sandi</label>

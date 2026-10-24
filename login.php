@@ -98,7 +98,7 @@ $setup_complete = ($_GET["setup"] ?? "") === "complete";
                         <div class="auth-input-wrap">
                             <i class="bi bi-person"></i>
                             <input class="form-control" type="text" id="username" name="username"
-                                   autocomplete="username" maxlength="50" value="<?= htmlspecialchars($username, ENT_QUOTES, "UTF-8") ?>" required autofocus>
+                                   autocomplete="username" maxlength="50" value="<?= htmlspecialchars($username, ENT_QUOTES, "UTF-8") ?>" required>
                         </div>
                     </div>
                     <div class="mb-4">

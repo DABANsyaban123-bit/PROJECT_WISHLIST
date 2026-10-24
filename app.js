@@ -1,6 +1,6 @@
 "use strict";
 
-document.addEventListener("DOMContentLoaded", () => {
+const initializeWishlistInteractions = () => {
     document.querySelectorAll("[data-live-filter]").forEach((form) => {
         const searchInput = form.querySelector("[data-filter-search]");
         const selects = Array.from(form.querySelectorAll("[data-filter-select]"));
@@ -86,7 +86,16 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         if (itemSelect.value) {
-            itemSelect.dispatchEvent(new Event("change"));
+            const option = itemSelect.selectedOptions[0];
+            suggestedName = `Pembelian ${option.dataset.nama || option.textContent.trim()}`;
+            suggestedAmount = option.dataset.harga || "";
+            if (!nameInput.value) {
+                nameInput.value = suggestedName;
+            }
+            if (!amountInput.value) {
+                amountInput.value = suggestedAmount;
+            }
+            nameInput.readOnly = true;
         }
     });
 
@@ -107,4 +116,10 @@ document.addEventListener("DOMContentLoaded", () => {
             submitter.replaceChildren(spinner, label);
         });
     });
-});
+};
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeWishlistInteractions, { once: true });
+} else {
+    initializeWishlistInteractions();
+}

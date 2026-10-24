@@ -632,6 +632,7 @@ if (!$query_pengeluaran) {
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../app.js" defer></script>
 
     <script>
         const inputCari = document.getElementById('cariPengeluaran');

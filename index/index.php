@@ -503,9 +503,14 @@ for ($i = 6; $i >= 0; $i--) {
             <h1>Dashboard</h1>
             <p>Kelola daftar belanja dan pantau pengeluaranmu dari satu tempat.</p>
         </div>
-        <a href="daftar.php" class="btn btn-gold">
-            <i class="bi bi-list-check me-1"></i> Kelola Daftar Barang
-        </a>
+        <div class="page-actions">
+            <a href="../pengeluaran/tambah_pengeluaran.php" class="btn btn-outline-primary">
+                <i class="bi bi-plus-circle me-1"></i> Catat Pengeluaran
+            </a>
+            <a href="daftar.php" class="btn btn-gold">
+                <i class="bi bi-list-check me-1"></i> Kelola Daftar Barang
+            </a>
+        </div>
     </div>
 
     <div class="row g-3 mb-4">

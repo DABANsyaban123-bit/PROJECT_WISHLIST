@@ -259,12 +259,21 @@ $query_barang = mysqli_stmt_get_result($stmt_barang);
 </head>
 
 <body class="bg-light">
-    <div class="container py-5">
+    <div class="container py-5 form-page">
         <div class="row justify-content-center">
             <div class="col-md-7 col-lg-6">
+                <div class="form-page-heading">
+                    <div>
+                        <h1 class="h3 mb-1">Edit pengeluaran</h1>
+                        <p>Perubahan barang terkait akan menyinkronkan status wishlist.</p>
+                    </div>
+                    <a class="btn btn-outline-primary" href="pengeluaran.php">
+                        <i class="bi bi-arrow-left me-1"></i> Kembali
+                    </a>
+                </div>
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-4">
-                        <h2 class="mb-2">Edit Pengeluaran</h2>
+                        <h2 class="mb-2">Detail pengeluaran</h2>
                         <p class="text-secondary mb-4">
                             Perbarui informasi pengeluaranmu.
                         </p>
@@ -351,6 +360,7 @@ $query_barang = mysqli_stmt_get_result($stmt_barang);
             </div>
         </div>
     </div>
+    <script src="../app.js" defer></script>
 </body>
 
 </html>

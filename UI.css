@@ -241,6 +241,12 @@ h1, h2, h3, h4, h5, h6 {
     padding: .7rem 1rem !important;
 }
 
+.page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 .stat-card {
     display: flex !important;
     min-height: 136px !important;
@@ -532,6 +538,11 @@ h1, h2, h3, h4, h5, h6 {
 
     .page-heading .btn {
         width: 100%;
+    }
+
+    .page-actions {
+        width: 100%;
+        flex-direction: column-reverse;
     }
 
     .stat-card {

@@ -38,7 +38,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && !$has_account) {
     } elseif (!preg_match('/^[A-Za-z0-9_.-]{3,50}$/', $username)) {
         $error = "Nama pengguna harus 3-50 karakter dan hanya boleh berisi huruf, angka, titik, garis bawah, atau tanda hubung.";
     } elseif (strlen($password) < 8 || strlen($password) > 72) {
-        $error = "Kata sandi harus terdiri dari 8-72 karakter.";
+        $error = "Kata sandi harus terdiri dari 8-72 byte.";
     } elseif ($password !== $confirm_password) {
         $error = "Konfirmasi kata sandi tidak sama.";
     } else {
@@ -99,7 +99,7 @@ $csrf_token = auth_csrf_token();
                         <label for="password" class="form-label">Kata sandi</label>
                         <input class="form-control" type="password" id="password" name="password" minlength="8" maxlength="72"
                                autocomplete="new-password" required>
-                        <div class="form-text">Gunakan 8-72 karakter.</div>
+                        <div class="form-text">Gunakan kata sandi sepanjang 8-72 byte.</div>
                     </div>
                     <div class="mb-4">
                         <label for="confirm_password" class="form-label">Ulangi kata sandi</label>

@@ -26,9 +26,12 @@ $error = "";
 $username = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && !$has_account) {
-    $username = trim($_POST["username"] ?? "");
+    $username_input = $_POST["username"] ?? "";
+    $username = is_string($username_input) ? trim($username_input) : "";
     $password = $_POST["password"] ?? "";
     $confirm_password = $_POST["confirm_password"] ?? "";
+    $password = is_string($password) ? $password : "";
+    $confirm_password = is_string($confirm_password) ? $confirm_password : "";
 
     if (!auth_verify_csrf($_POST["csrf_token"] ?? null)) {
         $error = "Sesi formulir kedaluwarsa. Silakan muat ulang halaman.";

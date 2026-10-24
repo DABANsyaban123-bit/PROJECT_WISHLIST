@@ -2,18 +2,7 @@
 include_once __DIR__ . "/config.php";
 require_once __DIR__ . "/auth.php";
 
-$create_table = mysqli_query($koneksi, "
-    CREATE TABLE IF NOT EXISTS users (
-        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(50) NOT NULL UNIQUE,
-        password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-");
-
-if (!$create_table) {
-    die("Gagal menyiapkan tabel akun: " . mysqli_error($koneksi));
-}
+auth_ensure_users_table($koneksi);
 
 $result = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM users");
 

@@ -19,6 +19,18 @@ function auth_require_login(): void
     }
 }
 
+function auth_ensure_users_table(mysqli $connection): void
+{
+    mysqli_query($connection, "
+        CREATE TABLE IF NOT EXISTS users (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(50) NOT NULL UNIQUE,
+            password_hash VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+}
+
 function auth_csrf_token(): string
 {
     if (empty($_SESSION["csrf_token"])) {

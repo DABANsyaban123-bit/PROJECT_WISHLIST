@@ -9,8 +9,23 @@ if (!empty($_SESSION["user_id"])) {
 
 $error = "";
 $username = "";
+$has_account = true;
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+try {
+    auth_ensure_users_table($koneksi);
+    $account_result = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM users");
+    $has_account = (int) mysqli_fetch_assoc($account_result)["total"] > 0;
+} catch (mysqli_sql_exception $exception) {
+    error_log("Wishlist PJK login setup failed: " . $exception->getMessage());
+    $error = "Tidak dapat menyiapkan akun. Pastikan database tersedia dan memiliki izin membuat tabel.";
+}
+
+if (!$has_account && $error === "") {
+    header("Location: setup.php");
+    exit;
+}
+
+if ($_SERVER["REQUEST_METHOD"] === "POST" && $error === "") {
     $username_input = $_POST["username"] ?? "";
     $username = is_string($username_input) ? trim($username_input) : "";
     $password = $_POST["password"] ?? "";

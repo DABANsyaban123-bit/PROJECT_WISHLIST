@@ -1,5 +1,7 @@
 <?php
 include_once __DIR__ . "/../config.php";
+require_once __DIR__ . "/../auth.php";
+auth_require_login();
 
 // Ringkasan pengeluaran
 $query_total = mysqli_query($koneksi, "
@@ -53,6 +55,7 @@ if (!$query_pengeluaran) {
         rel="stylesheet">
 
     <link rel="stylesheet" href="../STYLES.css">
+    <link rel="stylesheet" href="../UI.css">
 
     <style>
         body {
@@ -313,6 +316,12 @@ if (!$query_pengeluaran) {
                             Pengeluaran
                         </a>
                     </li>
+                    <li class="nav-item ms-lg-2">
+                        <form method="POST" action="../logout.php">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
+                            <button class="nav-logout" type="submit"><i class="bi bi-box-arrow-right me-1"></i>Keluar</button>
+                        </form>
+                    </li>
 
                 </ul>
             </div>
@@ -540,6 +549,7 @@ if (!$query_pengeluaran) {
                                                     type="hidden"
                                                     name="id_pengeluaran"
                                                     value="<?= (int) $data['id_pengeluaran'] ?>">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
                                                 <button
                                                     type="submit"

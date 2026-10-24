@@ -1,6 +1,8 @@
 
 <?php
 include_once __DIR__ . "/../config.php";
+require_once __DIR__ . "/../auth.php";
+auth_require_login();
 
 function e($value) {
     return htmlspecialchars((string) $value, ENT_QUOTES, "UTF-8");
@@ -133,6 +135,7 @@ for ($i = 6; $i >= 0; $i--) {
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../UI.css">
 
     
 <style>
@@ -490,6 +493,12 @@ for ($i = 6; $i >= 0; $i--) {
                     <a class="nav-link" href="../pengeluaran/pengeluaran.php">
                         <i class="bi bi-wallet2 me-1"></i> Pengeluaran
                     </a>
+                </li>
+                <li class="nav-item ms-lg-2">
+                    <form method="POST" action="../logout.php">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
+                        <button class="nav-logout" type="submit"><i class="bi bi-box-arrow-right me-1"></i>Keluar</button>
+                    </form>
                 </li>
             </ul>
         </div>

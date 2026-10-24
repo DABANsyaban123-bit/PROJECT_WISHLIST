@@ -1,6 +1,8 @@
 
 <?php
 include_once __DIR__ . "/../config.php";
+require_once __DIR__ . "/../auth.php";
+auth_require_login();
 
 function e($value) {
     return htmlspecialchars((string) $value, ENT_QUOTES, "UTF-8");
@@ -143,6 +145,7 @@ $query_error = "";
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../UI.css">
 
     
 <style>
@@ -501,6 +504,12 @@ $query_error = "";
                         <i class="bi bi-wallet2 me-1"></i> Pengeluaran
                     </a>
                 </li>
+                <li class="nav-item ms-lg-2">
+                    <form method="POST" action="../logout.php">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
+                        <button class="nav-logout" type="submit"><i class="bi bi-box-arrow-right me-1"></i>Keluar</button>
+                    </form>
+                </li>
             </ul>
         </div>
     </div>
@@ -675,12 +684,14 @@ $query_error = "";
                                    title="Edit barang">
                                     <i class="bi bi-pencil-square"></i>
                                 </a>
-                                <a class="action-btn delete-btn"
-                                   href="hapus.php?id=<?= (int) $barang["id_barang"] ?>"
-                                   title="Hapus barang"
-                                   onclick="return confirm('Yakin ingin menghapus barang ini?')">
-                                    <i class="bi bi-trash3"></i>
-                                </a>
+                                <form class="d-inline" action="hapus.php" method="POST"
+                                      onsubmit="return confirm('Yakin ingin menghapus barang ini?')">
+                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
+                                    <input type="hidden" name="id_barang" value="<?= (int) $barang["id_barang"] ?>">
+                                    <button class="action-btn delete-btn" type="submit" title="Hapus barang">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -744,12 +755,14 @@ $query_error = "";
                                    title="Edit barang">
                                     <i class="bi bi-pencil-square"></i>
                                 </a>
-                                <a class="action-btn delete-btn"
-                                   href="hapus.php?id=<?= (int) $barang["id_barang"] ?>"
-                                   title="Hapus barang"
-                                   onclick="return confirm('Yakin ingin menghapus barang ini?')">
-                                    <i class="bi bi-trash3"></i>
-                                </a>
+                                <form class="d-inline" action="hapus.php" method="POST"
+                                      onsubmit="return confirm('Yakin ingin menghapus barang ini?')">
+                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
+                                    <input type="hidden" name="id_barang" value="<?= (int) $barang["id_barang"] ?>">
+                                    <button class="action-btn delete-btn" type="submit" title="Hapus barang">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>

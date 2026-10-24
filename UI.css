@@ -70,6 +70,22 @@ h1, h2, h3, h4, h5, h6 {
     margin: 0 auto;
 }
 
+.navbar-custom .container-fluid,
+.wishlist-navbar .container {
+    width: min(100% - 40px, 1400px);
+    margin: 0 auto;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+}
+
+.navbar-toggler {
+    border-color: rgba(255, 255, 255, .55) !important;
+}
+
+.navbar-toggler:focus {
+    box-shadow: 0 0 0 .2rem rgba(255, 255, 255, .2) !important;
+}
+
 .page-heading h1 {
     color: var(--navy) !important;
 }
@@ -267,6 +283,10 @@ h1, h2, h3, h4, h5, h6 {
     font-size: clamp(1rem, 1.5vw, 1.35rem) !important;
 }
 
+.stat-card .stat-number {
+    letter-spacing: -.025em;
+}
+
 .panel {
     padding: 24px !important;
     border-radius: 18px !important;
@@ -354,7 +374,151 @@ h1, h2, h3, h4, h5, h6 {
     margin-top: 2px;
 }
 
+.item-table {
+    min-width: 680px;
+}
+
+.item-table tbody tr {
+    transition: background-color .15s ease;
+}
+
+.filter-no-results {
+    background: #f8fafd;
+}
+
+.filter-feedback {
+    min-height: 1.25rem;
+}
+
+.filter-reset {
+    min-width: 46px;
+}
+
+.action-btn {
+    display: inline-grid;
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    place-items: center;
+    border: 1px solid var(--border-soft);
+    border-radius: 9px !important;
+    background: #fff !important;
+}
+
+.action-btn:focus-visible,
+.nav-logout:focus-visible,
+.btn:focus-visible {
+    outline: 3px solid rgba(214, 174, 88, .65);
+    outline-offset: 2px;
+}
+
+.edit-btn {
+    color: var(--navy) !important;
+    border-color: #cbd7eb !important;
+}
+
+.delete-btn {
+    color: #a52834 !important;
+    border-color: #e5bfc3 !important;
+}
+
+.edit-btn:hover {
+    background: var(--navy-soft) !important;
+}
+
+.delete-btn:hover {
+    background: #fff0f1 !important;
+}
+
+.item-filter-panel .form-control,
+.item-filter-panel .form-select {
+    min-height: 46px !important;
+}
+
+.item-filter-panel .panel-heading h5 {
+    margin-bottom: 5px;
+}
+
+.expense-summary-card .card-body {
+    padding: 22px !important;
+}
+
+.expense-summary-card .expense-amount {
+    font-size: clamp(1.35rem, 2.2vw, 1.8rem);
+    overflow-wrap: anywhere;
+}
+
+.expense-search {
+    min-height: 44px;
+}
+
+.expense-actions form {
+    margin: 0;
+}
+
+.form-page {
+    max-width: 940px;
+}
+
+.form-page-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.form-page-heading p {
+    margin-bottom: 0;
+    color: var(--muted);
+}
+
+.form-page .card {
+    overflow: hidden;
+}
+
+.form-page .card-body > h2 {
+    letter-spacing: -.025em;
+}
+
+.form-page .btn-group-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.form-page .btn-group-actions .btn {
+    min-height: 44px;
+}
+
+.purchase-confirmation {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 12px 0 20px;
+    padding: 13px 15px;
+    border: 1px solid #d6e8dc;
+    border-radius: 12px;
+    color: #185b38;
+    background: #f0f8f3;
+    font-size: .92rem;
+}
+
+.purchase-confirmation i {
+    margin-top: 2px;
+}
+
+.btn[aria-busy="true"] {
+    cursor: wait;
+    opacity: .82;
+}
+
 @media (max-width: 767.98px) {
+    .navbar-custom .container-fluid,
+    .wishlist-navbar .container {
+        width: calc(100% - 28px);
+    }
+
     .page-container {
         width: min(100% - 28px, 1400px);
         padding-top: 26px !important;
@@ -409,6 +573,19 @@ h1, h2, h3, h4, h5, h6 {
 
     .expense-form-card {
         padding: 18px !important;
+    }
+
+    .form-page-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .form-page .btn-group-actions {
+        flex-direction: column-reverse;
+    }
+
+    .form-page .btn-group-actions .btn {
+        width: 100%;
     }
 }
 

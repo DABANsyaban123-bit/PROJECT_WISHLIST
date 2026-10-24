@@ -141,7 +141,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         </div>
                     <?php endif; ?>
 
-                    <form method="POST">
+                    <form method="POST" data-loading-form>
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
 
                         <div class="mb-3">
@@ -246,5 +246,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     </div>
 </div>
 
+<script src="../app.js" defer></script>
 </body>
 </html>

@@ -92,11 +92,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.querySelectorAll("form[data-loading-form]").forEach((form) => {
         form.addEventListener("submit", (event) => {
-            if (!form.reportValidity()) {
-                event.preventDefault();
-                return;
-            }
-
             const submitter = event.submitter || form.querySelector('[type="submit"]');
             if (!submitter || submitter.disabled) {
                 return;

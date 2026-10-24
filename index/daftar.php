@@ -678,6 +678,7 @@ $query_error = "";
                                     <i class="bi bi-pencil-square"></i>
                                 </a>
                                 <form class="d-inline" action="hapus.php" method="POST"
+                                      data-loading-form
                                       onsubmit="return confirm('Yakin ingin menghapus barang ini?')">
                                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
                                     <input type="hidden" name="id_barang" value="<?= (int) $barang["id_barang"] ?>">
@@ -755,6 +756,7 @@ $query_error = "";
                                     <i class="bi bi-pencil-square"></i>
                                 </a>
                                 <form class="d-inline" action="hapus.php" method="POST"
+                                      data-loading-form
                                       onsubmit="return confirm('Yakin ingin menghapus barang ini?')">
                                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
                                     <input type="hidden" name="id_barang" value="<?= (int) $barang["id_barang"] ?>">

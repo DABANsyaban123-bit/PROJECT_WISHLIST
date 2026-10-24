@@ -562,6 +562,7 @@ if (!$query_pengeluaran) {
                                             <form
                                                 action="hapus_pengeluaran.php"
                                                 method="POST"
+                                                data-loading-form
                                                 onsubmit="return confirm('Yakin ingin menghapus pengeluaran ini?');">
 
                                                 <input

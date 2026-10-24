@@ -276,7 +276,7 @@ $query_barang = mysqli_stmt_get_result($stmt_barang);
                         <?php endif; ?>
 
                         <div class="expense-form-card">
-                            <form method="POST">
+                            <form method="POST" data-loading-form>
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
                                 <div class="mb-3">
                                     <label class="form-label">Nama Pengeluaran</label>

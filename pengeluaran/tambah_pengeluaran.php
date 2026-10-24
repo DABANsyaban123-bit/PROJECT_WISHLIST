@@ -165,6 +165,8 @@ $query_barang = mysqli_query(
 if (!$query_barang) {
     die("Gagal mengambil daftar barang: " . mysqli_error($koneksi));
 }
+
+$jumlah_barang_tersedia = mysqli_num_rows($query_barang);
 ?>
 
 <!DOCTYPE html>
@@ -182,16 +184,26 @@ if (!$query_barang) {
 
 <body class="bg-light">
 
-<div class="container py-5">
+<div class="container py-5 form-page">
     <div class="row justify-content-center">
         <div class="col-md-7 col-lg-6">
+
+            <div class="form-page-heading">
+                <div>
+                    <h1 class="h3 mb-1">Catat pembelian</h1>
+                    <p>Hubungkan transaksi dengan barang agar status wishlist ikut diperbarui.</p>
+                </div>
+                <a class="btn btn-outline-primary" href="../index/index.php">
+                    <i class="bi bi-arrow-left me-1"></i> Kembali ke dashboard
+                </a>
+            </div>
 
             <div class="card border-0 shadow rounded-4">
                 <div class="card-body p-4 p-md-5">
 
-                    <h2 class="fw-bold mb-2">Tambah Pengeluaran</h2>
+                    <h2 class="fw-bold mb-2">Detail pengeluaran</h2>
                     <p class="text-secondary mb-4">
-                        Catat pengeluaran dan hubungkan dengan barang yang dibeli.
+                        Pilih barang wishlist jika transaksi ini adalah pembelian barang tersebut.
                     </p>
 
                     <?php if ($pesan_error !== ""): ?>
@@ -222,7 +234,7 @@ if (!$query_barang) {
 
                         <div class="mb-3">
                             <label for="id_barang" class="form-label">
-                                Barang dari Daftar (opsional)
+                                Barang yang dibeli <span class="text-secondary fw-normal">(opsional)</span>
                             </label>
 
                             <select
@@ -247,7 +259,14 @@ if (!$query_barang) {
                                 <?php endwhile; ?>
                             </select>
 
-                            <div class="form-text">Pilih barang yang baru dibeli. Statusnya akan otomatis berubah menjadi Sudah Dibeli dan barang akan selesai dari daftar aktif.</div>
+                            <?php if ($jumlah_barang_tersedia > 0): ?>
+                                <div class="purchase-confirmation" role="status">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                    <span>Setelah disimpan, barang akan otomatis berubah menjadi <strong>Sudah Dibeli</strong>, hilang dari prioritas dashboard, dan tetap terlihat di daftar barang.</span>
+                                </div>
+                            <?php else: ?>
+                                <div class="form-text mt-2">Tidak ada barang yang bisa dihubungkan. Kamu tetap dapat mencatat pengeluaran tanpa memilih barang.</div>
+                            <?php endif; ?>
                         </div>
 
                         <div class="mb-3">
@@ -293,7 +312,7 @@ if (!$query_barang) {
                                 placeholder="Tambahkan catatan..."><?= htmlspecialchars($catatan, ENT_QUOTES, "UTF-8") ?></textarea>
                         </div>
 
-                        <div class="d-flex gap-2">
+                        <div class="btn-group-actions">
                             <button type="submit" class="btn btn-primary">
                                 Simpan Pengeluaran
                             </button>

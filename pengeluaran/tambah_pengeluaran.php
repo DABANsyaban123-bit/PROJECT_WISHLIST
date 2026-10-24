@@ -30,6 +30,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     );
 
     if (
+        !auth_verify_csrf($_POST["csrf_token"] ?? null) ||
         $nama_pengeluaran === "" ||
         strlen($nama_pengeluaran) > 150 ||
         $jumlah === "" ||
@@ -41,7 +42,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         strlen($catatan) > 255 ||
         ($id_barang_raw !== "" && (!$id_barang || $id_barang < 1))
     ) {
-        $pesan_error = "Periksa kembali nama, jumlah, tanggal, dan data lainnya.";
+        $pesan_error = auth_verify_csrf($_POST["csrf_token"] ?? null)
+            ? "Periksa kembali nama, jumlah, tanggal, dan data lainnya."
+            : "Sesi formulir kedaluwarsa. Silakan muat ulang halaman.";
     } else {
         $boleh_simpan = true;
 

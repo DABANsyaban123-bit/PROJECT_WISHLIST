@@ -54,6 +54,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $status_valid = ["Belum Dibeli", "Sudah Dibeli"];
 
     if (
+        !auth_verify_csrf($_POST["csrf_token"] ?? null) ||
         $nama_barang === "" ||
         !in_array($kategori, $daftar_kategori, true) ||
         !in_array($jenis, $jenis_valid, true) ||
@@ -63,7 +64,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         (float) $harga < 0 ||
         !in_array($status, $status_valid, true)
     ) {
-        $pesan = "Periksa kembali data yang kamu masukkan.";
+        $pesan = auth_verify_csrf($_POST["csrf_token"] ?? null)
+            ? "Periksa kembali data yang kamu masukkan."
+            : "Sesi formulir kedaluwarsa. Silakan muat ulang halaman.";
     } else {
         $stmt = mysqli_prepare(
             $koneksi,

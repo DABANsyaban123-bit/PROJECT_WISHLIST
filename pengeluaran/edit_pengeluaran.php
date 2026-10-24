@@ -52,6 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         && (float) $jumlah_input > 0;
 
     if (
+        !auth_verify_csrf($_POST["csrf_token"] ?? null) ||
         $nama === "" ||
         strlen($nama) > 150 ||
         ($id_barang_input !== "" && (!$id_barang || $id_barang < 1)) ||
@@ -59,7 +60,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         !$tanggal_valid ||
         strlen($catatan) > 255
     ) {
-        $pesan_error = "Periksa kembali semua isian.";
+        $pesan_error = auth_verify_csrf($_POST["csrf_token"] ?? null)
+            ? "Periksa kembali semua isian."
+            : "Sesi formulir kedaluwarsa. Silakan muat ulang halaman.";
     } else {
         // Pastikan barang yang dipilih memang ada
         if ($id_barang !== null) {

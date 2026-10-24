@@ -9,11 +9,6 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !auth_verify_csrf($_POST["csrf_toke
     exit("Permintaan penghapusan tidak valid.");
 }
 
-if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-    header("Location: pengeluaran.php");
-    exit;
-}
-
 $id = filter_input(INPUT_POST, "id_pengeluaran", FILTER_VALIDATE_INT);
 
 if (!$id || $id < 1) {

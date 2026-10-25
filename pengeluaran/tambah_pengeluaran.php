@@ -244,7 +244,7 @@ $jumlah_barang_tersedia = mysqli_num_rows($query_barang);
                                     <option
                                         value="<?= (int) $barang["id_barang"] ?>"
                                         data-nama="<?= htmlspecialchars($barang["nama_barang"], ENT_QUOTES, "UTF-8") ?>"
-                                        data-harga="<?= htmlspecialchars((string) $barang["harga"], ENT_QUOTES, "UTF-8") ?>"
+                                        data-harga="<?= htmlspecialchars((string) $barang["sisa_pembayaran"], ENT_QUOTES, "UTF-8") ?>"
                                         <?= (string) $id_barang_form === (string) $barang["id_barang"] ? "selected" : "" ?>>
 
                                         <?= htmlspecialchars($barang["nama_barang"], ENT_QUOTES, "UTF-8") ?>

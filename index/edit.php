@@ -68,6 +68,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     } else {
         try {
             mysqli_begin_transaction($koneksi);
+            $kunci_barang = mysqli_prepare(
+                $koneksi,
+                "SELECT id_barang FROM barang WHERE id_barang = ? FOR UPDATE"
+            );
+            mysqli_stmt_bind_param($kunci_barang, "i", $id);
+            mysqli_stmt_execute($kunci_barang);
+            mysqli_stmt_close($kunci_barang);
+
             $stmt = mysqli_prepare(
                 $koneksi,
                 "UPDATE barang

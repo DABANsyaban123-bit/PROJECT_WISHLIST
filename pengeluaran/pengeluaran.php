@@ -549,19 +549,33 @@ if (!$query_pengeluaran) {
                                             ',',
                                             '.'
                                         ) ?>
-                                        <?php if (
-                                            $data['id_barang'] !== null &&
-                                            (float) $data['total_pembayaran_barang'] > (float) $data['harga_barang']
-                                        ): ?>
-                                            <div class="small text-danger fw-normal">
-                                                Kelebihan pembayaran barang:
+                                        <?php if ($data['id_barang'] !== null): ?>
+                                            <div class="small text-secondary fw-normal">
+                                                Total barang:
                                                 Rp <?= number_format(
-                                                    (float) $data['total_pembayaran_barang'] - (float) $data['harga_barang'],
+                                                    (float) $data['total_pembayaran_barang'],
                                                     0,
                                                     ',',
                                                     '.'
                                                 ) ?>
+                                                —
+                                                <?= (float) $data['total_pembayaran_barang'] >= (float) $data['harga_barang']
+                                                    ? 'Lunas'
+                                                    : 'Belum Lunas' ?>
                                             </div>
+                                            <?php if (
+                                                (float) $data['total_pembayaran_barang'] > (float) $data['harga_barang']
+                                            ): ?>
+                                                <div class="small text-danger fw-normal">
+                                                    Kelebihan pembayaran:
+                                                    Rp <?= number_format(
+                                                        (float) $data['total_pembayaran_barang'] - (float) $data['harga_barang'],
+                                                        0,
+                                                        ',',
+                                                        '.'
+                                                    ) ?>
+                                                </div>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </td>
 

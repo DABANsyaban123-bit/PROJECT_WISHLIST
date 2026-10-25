@@ -94,12 +94,29 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $id_barang_lama = $pengeluaran_terkunci["id_barang"] !== null
                 ? (int) $pengeluaran_terkunci["id_barang"]
                 : null;
+            $barang_dikunci = array_values(array_unique(array_filter(
+                [$id_barang_lama, $id_barang],
+                static function ($barang_id): bool {
+                    return $barang_id !== null;
+                }
+            )));
+            sort($barang_dikunci, SORT_NUMERIC);
+            foreach ($barang_dikunci as $barang_id_dikunci) {
+                $kunci_barang = mysqli_prepare(
+                    $koneksi,
+                    "SELECT id_barang FROM barang WHERE id_barang = ? FOR UPDATE"
+                );
+                mysqli_stmt_bind_param($kunci_barang, "i", $barang_id_dikunci);
+                mysqli_stmt_execute($kunci_barang);
+                mysqli_stmt_close($kunci_barang);
+            }
+
             $barang_baru_valid = true;
 
             if ($id_barang !== null) {
                 $cek_barang = mysqli_prepare(
                     $koneksi,
-                    "SELECT id_barang, harga FROM barang WHERE id_barang = ? FOR UPDATE"
+                    "SELECT id_barang, harga FROM barang WHERE id_barang = ?"
                 );
                 mysqli_stmt_bind_param($cek_barang, "i", $id_barang);
                 mysqli_stmt_execute($cek_barang);

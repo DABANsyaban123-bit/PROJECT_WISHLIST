@@ -89,8 +89,8 @@ $query_statistik = mysqli_query($koneksi, "
         COUNT(*) AS total,
         COALESCE(SUM(($total_bayar_sql) >= b.harga), 0) AS sudah,
         COALESCE(SUM(($total_bayar_sql) < b.harga), 0) AS belum,
-        COALESCE(SUM(b.jenis = 'Kebutuhan'), 0) AS kebutuhan,
-        COALESCE(SUM(b.jenis = 'Keinginan'), 0) AS keinginan
+        COALESCE(SUM(($total_bayar_sql) < b.harga AND b.jenis = 'Kebutuhan'), 0) AS kebutuhan,
+        COALESCE(SUM(($total_bayar_sql) < b.harga AND b.jenis = 'Keinginan'), 0) AS keinginan
     FROM barang b
 ");
 
@@ -751,7 +751,7 @@ $query_error = "";
                                 </a>
                                 <form class="d-inline" action="hapus.php" method="POST"
                                       data-loading-form
-                                      onsubmit="return confirm('Yakin ingin menghapus barang ini?')">
+                                      onsubmit="return confirm('Hapus barang ini? Barang dengan riwayat pembayaran tidak dapat dihapus agar transaksi tetap tersimpan.')">
                                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
                                     <input type="hidden" name="id_barang" value="<?= (int) $barang["id_barang"] ?>">
                                     <button class="action-btn delete-btn" type="submit" title="Hapus barang">

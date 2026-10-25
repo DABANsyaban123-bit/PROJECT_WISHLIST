@@ -15,7 +15,9 @@ const formatRupiahRaw = (rawValue) => {
     }
 
     const [integer, decimal] = normalized.split(".");
-    return formatRupiahDigits(decimal ? `${integer},${decimal}` : integer);
+    return formatRupiahDigits(decimal && Number(decimal) > 0
+        ? `${integer},${decimal}`
+        : integer);
 };
 
 const prepareRupiahInputs = (form) => {

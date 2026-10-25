@@ -79,7 +79,7 @@ $setup_complete = ($_GET["setup"] ?? "") === "complete";
 <body class="auth-page">
     <main class="auth-layout">
         <section class="auth-intro">
-            <a class="auth-brand" href="login.php">
+            <a class="auth-brand" href="index.php">
                 <span class="auth-brand-mark"><i class="bi bi-bag-heart-fill"></i></span>
                 Wishlist PJK
             </a>

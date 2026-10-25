@@ -10,6 +10,7 @@ $nama_barang = "";
 $kategori = "";
 $jenis = "Keinginan";
 $harga = "";
+$harga_input = "";
 $status = "Belum Dibeli";
 
 $daftar_kategori = [
@@ -177,7 +178,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 class="form-control"
                                 inputmode="decimal"
                                 data-rupiah-input
-                                value="<?= htmlspecialchars(nominal_format_input($harga ?? ''), ENT_QUOTES, "UTF-8") ?>"
+                                value="<?= htmlspecialchars(nominal_format_input($harga_input), ENT_QUOTES, "UTF-8") ?>"
                                 placeholder="Contoh: 20.000.000"
                                 required>
                             <div class="form-text">Pemisah ribuan otomatis; gunakan koma untuk nilai sen.</div>

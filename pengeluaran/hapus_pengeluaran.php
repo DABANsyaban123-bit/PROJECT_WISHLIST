@@ -2,6 +2,7 @@
 <?php
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
+require_once __DIR__ . "/../pembayaran.php";
 auth_require_login();
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST" || !auth_verify_csrf($_POST["csrf_token"] ?? null)) {
@@ -37,6 +38,16 @@ try {
         ? (int) $pengeluaran["id_barang"]
         : null;
 
+    if ($id_barang !== null) {
+        $stmt = mysqli_prepare(
+            $koneksi,
+            "SELECT id_barang FROM barang WHERE id_barang = ? FOR UPDATE"
+        );
+        mysqli_stmt_bind_param($stmt, "i", $id_barang);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+    }
+
     $stmt = mysqli_prepare(
         $koneksi,
         "DELETE FROM pengeluaran WHERE id_pengeluaran = ?"
@@ -46,24 +57,7 @@ try {
     mysqli_stmt_close($stmt);
 
     if ($id_barang !== null) {
-        $stmt = mysqli_prepare(
-            $koneksi,
-            "SELECT id_pengeluaran FROM pengeluaran WHERE id_barang = ? LIMIT 1"
-        );
-        mysqli_stmt_bind_param($stmt, "i", $id_barang);
-        mysqli_stmt_execute($stmt);
-        $masih_dipakai = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt)) !== null;
-        mysqli_stmt_close($stmt);
-
-        if (!$masih_dipakai) {
-            $stmt = mysqli_prepare(
-                $koneksi,
-                "UPDATE barang SET status = 'Belum Dibeli' WHERE id_barang = ?"
-            );
-            mysqli_stmt_bind_param($stmt, "i", $id_barang);
-            mysqli_stmt_execute($stmt);
-            mysqli_stmt_close($stmt);
-        }
+        pembayaran_sinkronkan_status($koneksi, $id_barang);
     }
 
     mysqli_commit($koneksi);

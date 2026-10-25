@@ -1,6 +1,7 @@
 <?php
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
+require_once __DIR__ . "/../pembayaran.php";
 auth_require_login();
 
 $id = filter_input(INPUT_GET, "id", FILTER_VALIDATE_INT);
@@ -98,29 +99,33 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if ($id_barang !== null) {
                 $cek_barang = mysqli_prepare(
                     $koneksi,
-                    "SELECT id_barang FROM barang WHERE id_barang = ? FOR UPDATE"
+                    "SELECT id_barang, harga FROM barang WHERE id_barang = ? FOR UPDATE"
                 );
                 mysqli_stmt_bind_param($cek_barang, "i", $id_barang);
                 mysqli_stmt_execute($cek_barang);
-                $barang_baru_valid = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_barang)) !== null;
+                $barang_tujuan = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_barang));
                 mysqli_stmt_close($cek_barang);
 
-                $cek_pemakaian = mysqli_prepare(
-                    $koneksi,
-                    "SELECT id_pengeluaran
+                $barang_baru_valid = $barang_tujuan !== null;
+                if ($barang_baru_valid && $id_barang !== $id_barang_lama) {
+                    $cek_total = mysqli_prepare(
+                        $koneksi,
+                        "SELECT COALESCE(SUM(jumlah), 0) AS total_bayar
                      FROM pengeluaran
-                     WHERE id_barang = ?
-                       AND id_pengeluaran <> ?
-                     LIMIT 1"
-                );
-                mysqli_stmt_bind_param($cek_pemakaian, "ii", $id_barang, $id);
-                mysqli_stmt_execute($cek_pemakaian);
-                $sudah_dipakai = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_pemakaian)) !== null;
-                mysqli_stmt_close($cek_pemakaian);
+                     WHERE id_barang = ?"
+                    );
+                    mysqli_stmt_bind_param($cek_total, "i", $id_barang);
+                    mysqli_stmt_execute($cek_total);
+                    $total_bayar = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_total));
+                    mysqli_stmt_close($cek_total);
 
-                if (!$barang_baru_valid || $sudah_dipakai) {
+                    $barang_baru_valid = (float) $total_bayar["total_bayar"]
+                        < (float) $barang_tujuan["harga"];
+                }
+
+                if (!$barang_baru_valid) {
                     mysqli_rollback($koneksi);
-                    $pesan_error = "Barang tidak tersedia atau sudah terhubung ke pengeluaran lain.";
+                    $pesan_error = "Barang tidak tersedia atau sudah lunas.";
                 }
             }
 
@@ -170,35 +175,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 if (mysqli_stmt_execute($update)) {
                     mysqli_stmt_close($update);
-                    if ($id_barang !== null) {
-                        $status_baru = mysqli_prepare(
-                            $koneksi,
-                            "UPDATE barang SET status = 'Sudah Dibeli' WHERE id_barang = ?"
-                        );
-                        mysqli_stmt_bind_param($status_baru, "i", $id_barang);
-                        mysqli_stmt_execute($status_baru);
-                        mysqli_stmt_close($status_baru);
+                    if ($id_barang_lama !== null) {
+                        pembayaran_sinkronkan_status($koneksi, $id_barang_lama);
                     }
-
-                    if ($id_barang_lama !== null && $id_barang_lama !== $id_barang) {
-                        $cek_pengeluaran_lain = mysqli_prepare(
-                            $koneksi,
-                            "SELECT id_pengeluaran FROM pengeluaran WHERE id_barang = ? LIMIT 1"
-                        );
-                        mysqli_stmt_bind_param($cek_pengeluaran_lain, "i", $id_barang_lama);
-                        mysqli_stmt_execute($cek_pengeluaran_lain);
-                        $masih_dipakai = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_pengeluaran_lain)) !== null;
-                        mysqli_stmt_close($cek_pengeluaran_lain);
-
-                        if (!$masih_dipakai) {
-                            $status_lama = mysqli_prepare(
-                                $koneksi,
-                                "UPDATE barang SET status = 'Belum Dibeli' WHERE id_barang = ?"
-                            );
-                            mysqli_stmt_bind_param($status_lama, "i", $id_barang_lama);
-                            mysqli_stmt_execute($status_lama);
-                            mysqli_stmt_close($status_lama);
-                        }
+                    if ($id_barang !== null && $id_barang !== $id_barang_lama) {
+                        pembayaran_sinkronkan_status($koneksi, $id_barang);
                     }
 
                     mysqli_commit($koneksi);
@@ -231,15 +212,8 @@ $stmt_barang = mysqli_prepare(
     $koneksi,
     "SELECT b.id_barang, b.nama_barang
      FROM barang b
-     WHERE NOT EXISTS (
-         SELECT 1
-         FROM pengeluaran p
-         WHERE p.id_barang = b.id_barang
-           AND p.id_pengeluaran <> ?
-     )
      ORDER BY b.nama_barang"
 );
-mysqli_stmt_bind_param($stmt_barang, "i", $id);
 mysqli_stmt_execute($stmt_barang);
 $query_barang = mysqli_stmt_get_result($stmt_barang);
 ?>
@@ -265,7 +239,7 @@ $query_barang = mysqli_stmt_get_result($stmt_barang);
                 <div class="form-page-heading">
                     <div>
                         <h1 class="h3 mb-1">Edit pengeluaran</h1>
-                        <p>Perubahan barang terkait akan menyinkronkan status wishlist.</p>
+                        <p>Perubahan transaksi akan memperbarui total dan status pembayaran barang.</p>
                     </div>
                     <a class="btn btn-outline-primary" href="pengeluaran.php">
                         <i class="bi bi-arrow-left me-1"></i> Kembali

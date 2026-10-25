@@ -28,7 +28,18 @@ $total_bulan = mysqli_fetch_assoc($query_bulan)['total'];
 
 // Mengambil riwayat pengeluaran beserta nama barang
 $query_pengeluaran = mysqli_query($koneksi, "
-    SELECT p.*, b.nama_barang
+    SELECT p.*, b.nama_barang, b.harga AS harga_barang,
+           (
+               SELECT COUNT(*)
+               FROM pengeluaran p2
+               WHERE p2.id_barang = p.id_barang
+                 AND p2.id_pengeluaran <= p.id_pengeluaran
+           ) AS nomor_pembayaran,
+           (
+               SELECT COALESCE(SUM(p3.jumlah), 0)
+               FROM pengeluaran p3
+               WHERE p3.id_barang = p.id_barang
+           ) AS total_pembayaran_barang
     FROM pengeluaran AS p
     LEFT JOIN barang AS b
         ON p.id_barang = b.id_barang
@@ -352,7 +363,7 @@ if (!$query_pengeluaran) {
         <?php if (($_GET["tersimpan"] ?? "") === "barang"): ?>
             <div class="alert alert-success" role="status">
                 <i class="bi bi-check-circle-fill me-2"></i>
-                Pengeluaran tersimpan. Status barang di wishlist otomatis berubah menjadi <strong>Sudah Dibeli</strong>.
+                Pembayaran tersimpan. Status lunas dihitung dari seluruh transaksi yang terkait dengan barang.
             </div>
         <?php elseif (($_GET["tersimpan"] ?? "") === "umum"): ?>
             <div class="alert alert-success" role="status">
@@ -364,7 +375,7 @@ if (!$query_pengeluaran) {
             </div>
         <?php elseif (($_GET["dihapus"] ?? "") === "1"): ?>
             <div class="alert alert-success" role="status">
-                <i class="bi bi-check-circle-fill me-2"></i>Pengeluaran berhasil dihapus. Barang terkait kembali ke daftar aktif.
+                <i class="bi bi-check-circle-fill me-2"></i>Pengeluaran berhasil dihapus. Status pembayaran barang telah dihitung ulang.
             </div>
         <?php endif; ?>
 
@@ -487,6 +498,7 @@ if (!$query_pengeluaran) {
                                 <th>No.</th>
                                 <th>Nama Pengeluaran</th>
                                 <th>Barang</th>
+                                <th>Pembayaran Ke-</th>
                                 <th>Jumlah</th>
                                 <th>Tanggal</th>
                                 <th>Catatan</th>
@@ -524,6 +536,12 @@ if (!$query_pengeluaran) {
                                         ) ?>
                                     </td>
 
+                                    <td>
+                                        <?= $data['id_barang'] !== null
+                                            ? (int) $data['nomor_pembayaran']
+                                            : '-' ?>
+                                    </td>
+
                                     <td class="expense-price">
                                         Rp <?= number_format(
                                             (float) $data['jumlah'],
@@ -531,6 +549,20 @@ if (!$query_pengeluaran) {
                                             ',',
                                             '.'
                                         ) ?>
+                                        <?php if (
+                                            $data['id_barang'] !== null &&
+                                            (float) $data['total_pembayaran_barang'] > (float) $data['harga_barang']
+                                        ): ?>
+                                            <div class="small text-danger fw-normal">
+                                                Kelebihan pembayaran barang:
+                                                Rp <?= number_format(
+                                                    (float) $data['total_pembayaran_barang'] - (float) $data['harga_barang'],
+                                                    0,
+                                                    ',',
+                                                    '.'
+                                                ) ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </td>
 
                                     <td class="expense-date">
@@ -589,7 +621,7 @@ if (!$query_pengeluaran) {
                             ?>
 
                                 <tr>
-                                    <td colspan="7" class="expense-empty">
+                                    <td colspan="8" class="expense-empty">
 
                                         <h5 class="fw-bold">
                                             Belum Ada Pengeluaran

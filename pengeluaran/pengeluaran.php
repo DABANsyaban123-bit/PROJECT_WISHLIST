@@ -13,16 +13,24 @@ $urutan = in_array($urutan, ["terbaru", "terlama"], true) ? $urutan : "terbaru";
 
 foreach (["dari", "sampai"] as $parameter_tanggal) {
     $nilai_tanggal = $$parameter_tanggal;
-    $tanggal_valid = DateTime::createFromFormat("!Y-m-d", $nilai_tanggal);
     if (
         $nilai_tanggal !== "" &&
-        (!$tanggal_valid || $tanggal_valid->format("Y-m-d") !== $nilai_tanggal)
+        !preg_match('/^\d{4}-\d{2}-\d{2}$/', $nilai_tanggal)
     ) {
         $$parameter_tanggal = "";
+        continue;
+    }
+    if ($nilai_tanggal !== "") {
+        $tanggal_valid = DateTime::createFromFormat("!Y-m-d", $nilai_tanggal);
+        if (!$tanggal_valid || $tanggal_valid->format("Y-m-d") !== $nilai_tanggal) {
+            $$parameter_tanggal = "";
+        }
     }
 }
 
-$bulan_valid = DateTime::createFromFormat("!Y-m", $bulan);
+$bulan_valid = preg_match('/^\d{4}-\d{2}$/', $bulan)
+    ? DateTime::createFromFormat("!Y-m", $bulan)
+    : false;
 if ($bulan !== "" && (!$bulan_valid || $bulan_valid->format("Y-m") !== $bulan)) {
     $bulan = "";
 }

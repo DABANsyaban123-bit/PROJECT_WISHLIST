@@ -5,7 +5,7 @@ const formatRupiahDigits = (rawValue) => {
     const integer = rawInteger.replace(/\D/g, "").replace(/^0+(?=\d)/, "") || "0";
     const decimal = rawDecimal.replace(/\D/g, "").slice(0, 2);
     const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    return decimal ? `${grouped},${decimal}` : grouped;
+    return rawValue.includes(",") ? `${grouped},${decimal}` : grouped;
 };
 
 const formatRupiahRaw = (rawValue) => {
@@ -29,7 +29,7 @@ const prepareRupiahInputs = (form) => {
 
     form.addEventListener("submit", () => {
         inputs.forEach((input) => {
-            input.value = input.value.replace(/\./g, "").replace(",", ".");
+            input.value = input.value.replace(/,$/, "").replace(/\./g, "").replace(",", ".");
         });
     });
 };

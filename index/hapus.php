@@ -16,19 +16,54 @@ $id = filter_input(
 );
 
 if (!$id || $id < 1) {
-    header("Location: index.php");
+    header("Location: daftar.php");
     exit;
 }
 
-$stmt = mysqli_prepare(
-    $koneksi,
-    "DELETE FROM barang WHERE id_barang = ?"
-);
+try {
+    mysqli_begin_transaction($koneksi);
 
-mysqli_stmt_bind_param($stmt, "i", $id);
-mysqli_stmt_execute($stmt);
-mysqli_stmt_close($stmt);
+    $stmt = mysqli_prepare(
+        $koneksi,
+        "SELECT id_barang FROM barang WHERE id_barang = ? FOR UPDATE"
+    );
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $barang = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
 
-header("Location: index.php");
-exit;
+    if (!$barang) {
+        mysqli_commit($koneksi);
+        header("Location: daftar.php");
+        exit;
+    }
+
+    $stmt = mysqli_prepare(
+        $koneksi,
+        "SELECT id_pengeluaran FROM pengeluaran WHERE id_barang = ? LIMIT 1"
+    );
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $memiliki_riwayat = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt)) !== null;
+    mysqli_stmt_close($stmt);
+
+    if ($memiliki_riwayat) {
+        mysqli_rollback($koneksi);
+        header("Location: daftar.php?hapus_tertaut=1");
+        exit;
+    }
+
+    $stmt = mysqli_prepare($koneksi, "DELETE FROM barang WHERE id_barang = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    mysqli_commit($koneksi);
+    header("Location: daftar.php");
+    exit;
+} catch (mysqli_sql_exception $exception) {
+    mysqli_rollback($koneksi);
+    error_log("Wishlist PJK item deletion failed: " . $exception->getMessage());
+    http_response_code(500);
+    exit("Barang gagal dihapus. Riwayat pembayaran tetap dipertahankan.");
+}
 ?>

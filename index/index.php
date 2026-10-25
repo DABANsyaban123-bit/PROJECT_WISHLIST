@@ -2,6 +2,7 @@
 <?php
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
+require_once __DIR__ . "/../pembayaran.php";
 auth_require_login();
 
 function e($value) {
@@ -12,14 +13,15 @@ function rupiah($angka) {
     return "Rp " . number_format((float) $angka, 0, ",", ".");
 }
 
+$total_bayar_sql = pembayaran_total_sql("b");
 $query_total = mysqli_query($koneksi, "
     SELECT
         COUNT(*) AS total,
-        COALESCE(SUM(status = 'Sudah Dibeli'), 0) AS sudah,
-        COALESCE(SUM(status = 'Belum Dibeli'), 0) AS belum,
-        COALESCE(SUM(jenis = 'Kebutuhan'), 0) AS kebutuhan,
-        COALESCE(SUM(jenis = 'Keinginan'), 0) AS keinginan
-    FROM barang
+        COALESCE(SUM(($total_bayar_sql) >= b.harga), 0) AS sudah,
+        COALESCE(SUM(($total_bayar_sql) < b.harga), 0) AS belum,
+        COALESCE(SUM(b.jenis = 'Kebutuhan'), 0) AS kebutuhan,
+        COALESCE(SUM(b.jenis = 'Keinginan'), 0) AS keinginan
+    FROM barang b
 ");
 
 $stat = mysqli_fetch_assoc($query_total);
@@ -54,29 +56,23 @@ $total_bulan = (float) mysqli_fetch_assoc($query_bulan)["total"];
 
 // Barang terbaru yang masih aktif.
 $query_kebutuhan = mysqli_query($koneksi, "
-    SELECT b.*
+    SELECT b.*,
+           $total_bayar_sql AS total_dibayar,
+           GREATEST(b.harga - ($total_bayar_sql), 0) AS sisa_pembayaran
     FROM barang b
     WHERE b.jenis = 'Kebutuhan'
-      AND b.status = 'Belum Dibeli'
-      AND NOT EXISTS (
-          SELECT 1
-          FROM pengeluaran p
-          WHERE p.id_barang = b.id_barang
-      )
+      AND ($total_bayar_sql) < b.harga
     ORDER BY b.id_barang DESC
     LIMIT 5
 ");
 
 $query_keinginan = mysqli_query($koneksi, "
-    SELECT b.*
+    SELECT b.*,
+           $total_bayar_sql AS total_dibayar,
+           GREATEST(b.harga - ($total_bayar_sql), 0) AS sisa_pembayaran
     FROM barang b
     WHERE b.jenis = 'Keinginan'
-      AND b.status = 'Belum Dibeli'
-      AND NOT EXISTS (
-          SELECT 1
-          FROM pengeluaran p
-          WHERE p.id_barang = b.id_barang
-      )
+      AND ($total_bayar_sql) < b.harga
     ORDER BY b.id_barang DESC
     LIMIT 5
 ");
@@ -528,7 +524,7 @@ for ($i = 6; $i >= 0; $i--) {
             <div class="stat-card">
                 <div class="stat-icon icon-green"><i class="bi bi-check-circle"></i></div>
                 <div>
-                    <div class="stat-label">Sudah Dibeli</div>
+                    <div class="stat-label">Lunas</div>
                     <div class="stat-number"><?= $sudah_dibeli ?></div>
                 </div>
             </div>
@@ -538,7 +534,7 @@ for ($i = 6; $i >= 0; $i--) {
             <div class="stat-card">
                 <div class="stat-icon icon-gold"><i class="bi bi-hourglass-split"></i></div>
                 <div>
-                    <div class="stat-label">Belum Dibeli</div>
+                    <div class="stat-label">Belum Lunas</div>
                     <div class="stat-number"><?= $belum_dibeli ?></div>
                 </div>
             </div>
@@ -566,7 +562,7 @@ for ($i = 6; $i >= 0; $i--) {
                 </div>
 
                 <p class="text-secondary small mb-3">
-                    Progres pembelian dari seluruh barang di daftar.
+                    Progres pelunasan dari seluruh barang di daftar.
                 </p>
 
                 <div class="progress">
@@ -662,6 +658,8 @@ for ($i = 6; $i >= 0; $i--) {
                         <th>Nama Barang</th>
                         <th>Kategori</th>
                         <th>Harga</th>
+                        <th>Dibayar</th>
+                        <th>Sisa</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -672,15 +670,17 @@ for ($i = 6; $i >= 0; $i--) {
                             <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
                             <td><?= e($barang["kategori"]) ?></td>
                             <td class="money"><?= rupiah($barang["harga"]) ?></td>
+                            <td class="money"><?= rupiah($barang["total_dibayar"]) ?></td>
+                            <td class="money"><?= rupiah($barang["sisa_pembayaran"]) ?></td>
                             <td>
-                                <span class="badge-status <?= $barang["status"] === "Sudah Dibeli" ? "status-sudah" : "status-belum" ?>">
-                                    <?= e($barang["status"]) ?>
+                                <span class="badge-status status-belum">
+                                    Belum Lunas
                                 </span>
                             </td>
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="4" class="empty-state">Tidak ada kebutuhan yang belum dibeli. Lihat status lengkap di <a href="daftar.php">daftar barang</a>.</td></tr>
+                    <tr><td colspan="6" class="empty-state">Tidak ada kebutuhan yang belum lunas. Lihat riwayat pembayaran di <a href="../pengeluaran/pengeluaran.php">pengeluaran</a>.</td></tr>
                 <?php endif; ?>
                 </tbody>
             </table>
@@ -700,6 +700,8 @@ for ($i = 6; $i >= 0; $i--) {
                         <th>Nama Barang</th>
                         <th>Kategori</th>
                         <th>Harga</th>
+                        <th>Dibayar</th>
+                        <th>Sisa</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -710,15 +712,17 @@ for ($i = 6; $i >= 0; $i--) {
                             <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
                             <td><?= e($barang["kategori"]) ?></td>
                             <td class="money"><?= rupiah($barang["harga"]) ?></td>
+                            <td class="money"><?= rupiah($barang["total_dibayar"]) ?></td>
+                            <td class="money"><?= rupiah($barang["sisa_pembayaran"]) ?></td>
                             <td>
-                                <span class="badge-status <?= $barang["status"] === "Sudah Dibeli" ? "status-sudah" : "status-belum" ?>">
-                                    <?= e($barang["status"]) ?>
+                                <span class="badge-status status-belum">
+                                    Belum Lunas
                                 </span>
                             </td>
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="4" class="empty-state">Tidak ada keinginan yang belum dibeli. Lihat status lengkap di <a href="daftar.php">daftar barang</a>.</td></tr>
+                    <tr><td colspan="6" class="empty-state">Tidak ada keinginan yang belum lunas. Lihat riwayat pembayaran di <a href="../pengeluaran/pengeluaran.php">pengeluaran</a>.</td></tr>
                 <?php endif; ?>
                 </tbody>
             </table>

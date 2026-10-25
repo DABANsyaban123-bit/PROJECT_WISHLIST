@@ -2,6 +2,7 @@
 <?php
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
+require_once __DIR__ . "/../pembayaran.php";
 auth_require_login();
 
 $pesan_error = "";
@@ -74,7 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             } else {
                 $stmt_cek = mysqli_prepare(
                     $koneksi,
-                    "SELECT id_barang FROM barang WHERE id_barang = ? FOR UPDATE"
+                    "SELECT id_barang, harga FROM barang WHERE id_barang = ? FOR UPDATE"
                 );
                 mysqli_stmt_bind_param($stmt_cek, "i", $id_barang);
                 mysqli_stmt_execute($stmt_cek);
@@ -83,19 +84,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 $stmt_cek = mysqli_prepare(
                     $koneksi,
-                    "SELECT id_pengeluaran
+                    "SELECT COALESCE(SUM(jumlah), 0) AS total_bayar
                      FROM pengeluaran
-                     WHERE id_barang = ?
-                     LIMIT 1"
+                     WHERE id_barang = ?"
                 );
                 mysqli_stmt_bind_param($stmt_cek, "i", $id_barang);
                 mysqli_stmt_execute($stmt_cek);
-                $sudah_dicatat = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek));
+                $pembayaran = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek));
                 mysqli_stmt_close($stmt_cek);
 
-                if (!$barang_valid || $sudah_dicatat) {
+                if (
+                    !$barang_valid ||
+                    (float) $pembayaran["total_bayar"] >= (float) $barang_valid["harga"]
+                ) {
                     mysqli_rollback($koneksi);
-                    $pesan_error = "Barang ini tidak tersedia atau sudah memiliki catatan pengeluaran.";
+                    $pesan_error = "Barang ini tidak tersedia atau sudah lunas.";
                 } else {
                     $stmt = mysqli_prepare(
                         $koneksi,
@@ -120,13 +123,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if ($pesan_error === "" && mysqli_stmt_execute($stmt)) {
                 mysqli_stmt_close($stmt);
                 if ($id_barang !== null) {
-                    $stmt_status = mysqli_prepare(
-                        $koneksi,
-                        "UPDATE barang SET status = 'Sudah Dibeli' WHERE id_barang = ?"
-                    );
-                    mysqli_stmt_bind_param($stmt_status, "i", $id_barang);
-                    mysqli_stmt_execute($stmt_status);
-                    mysqli_stmt_close($stmt_status);
+                    pembayaran_sinkronkan_status($koneksi, $id_barang);
                 }
                 mysqli_commit($koneksi);
                 header(
@@ -149,16 +146,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 
-// Barang yang bisa dipilih: belum memiliki catatan pengeluaran.
+$total_bayar_sql = pembayaran_total_sql("b");
 $query_barang = mysqli_query(
     $koneksi,
-    "SELECT b.id_barang, b.nama_barang, b.harga
+    "SELECT b.id_barang, b.nama_barang, b.harga,
+            ($total_bayar_sql) AS total_dibayar,
+            GREATEST(b.harga - ($total_bayar_sql), 0) AS sisa_pembayaran
      FROM barang b
-     WHERE NOT EXISTS (
-           SELECT 1
-           FROM pengeluaran p
-           WHERE p.id_barang = b.id_barang
-       )
+     WHERE ($total_bayar_sql) < b.harga
      ORDER BY b.nama_barang ASC"
 );
 
@@ -191,7 +186,7 @@ $jumlah_barang_tersedia = mysqli_num_rows($query_barang);
             <div class="form-page-heading">
                 <div>
                     <h1 class="h3 mb-1">Catat pembelian</h1>
-                    <p>Hubungkan transaksi dengan barang agar status wishlist ikut diperbarui.</p>
+                    <p>Catat pembayaran, termasuk cicilan untuk barang yang belum lunas.</p>
                 </div>
                 <a class="btn btn-outline-primary" href="../index/index.php">
                     <i class="bi bi-arrow-left me-1"></i> Kembali ke dashboard
@@ -234,7 +229,7 @@ $jumlah_barang_tersedia = mysqli_num_rows($query_barang);
 
                         <div class="mb-3">
                             <label for="id_barang" class="form-label">
-                                Barang yang dibeli <span class="text-secondary fw-normal">(opsional)</span>
+                                Barang wishlist <span class="text-secondary fw-normal">(opsional)</span>
                             </label>
 
                             <select
@@ -253,7 +248,7 @@ $jumlah_barang_tersedia = mysqli_num_rows($query_barang);
                                         <?= (string) $id_barang_form === (string) $barang["id_barang"] ? "selected" : "" ?>>
 
                                         <?= htmlspecialchars($barang["nama_barang"], ENT_QUOTES, "UTF-8") ?>
-                                        — Rp <?= number_format((float) $barang["harga"], 0, ",", ".") ?>
+                                        — Sisa Rp <?= number_format((float) $barang["sisa_pembayaran"], 0, ",", ".") ?>
 
                                     </option>
                                 <?php endwhile; ?>
@@ -262,7 +257,7 @@ $jumlah_barang_tersedia = mysqli_num_rows($query_barang);
                             <?php if ($jumlah_barang_tersedia > 0): ?>
                                 <div class="purchase-confirmation" role="status">
                                     <i class="bi bi-arrow-repeat"></i>
-                                    <span>Setelah disimpan, barang akan otomatis berubah menjadi <strong>Sudah Dibeli</strong>, hilang dari prioritas dashboard, dan tetap terlihat di daftar barang.</span>
+                                    <span>Pembayaran berulang didukung. Barang tetap aktif sampai total pembayaran mencapai harga.</span>
                                 </div>
                             <?php else: ?>
                                 <div class="form-text mt-2">Tidak ada barang yang bisa dihubungkan. Kamu tetap dapat mencatat pengeluaran tanpa memilih barang.</div>

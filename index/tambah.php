@@ -25,10 +25,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $kategori = trim($_POST["kategori"] ?? "");
     $jenis = $_POST["jenis"] ?? "Keinginan";
     $harga = $_POST["harga"] ?? "";
-    $status = $_POST["status"] ?? "Belum Dibeli";
-
     $jenis_valid = ["Kebutuhan", "Keinginan"];
-    $status_valid = ["Belum Dibeli", "Sudah Dibeli"];
 
     if (
         !auth_verify_csrf($_POST["csrf_token"] ?? null) ||
@@ -38,8 +35,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $harga === "" ||
         !is_numeric($harga) ||
         !is_finite((float) $harga) ||
-        (float) $harga < 0 ||
-        !in_array($status, $status_valid, true)
+        (float) $harga <= 0
     ) {
         $pesan = auth_verify_csrf($_POST["csrf_token"] ?? null)
             ? "Periksa kembali data yang kamu masukkan."
@@ -179,29 +175,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 id="harga"
                                 name="harga"
                                 class="form-control"
-                                min="0"
+                                min="0.01"
                                 step="0.01"
                                 value="<?= htmlspecialchars((string) $harga, ENT_QUOTES, "UTF-8") ?>"
                                 placeholder="Contoh: 150000"
                                 required>
-                        </div>
-
-                        <div class="mb-4">
-                            <label for="status" class="form-label">
-                                Status Barang
-                            </label>
-                            <select id="status" name="status"
-                                    class="form-select" required>
-                                <option value="Belum Dibeli"
-                                    <?= $status === "Belum Dibeli" ? "selected" : "" ?>>
-                                    Belum Dibeli
-                                </option>
-
-                                <option value="Sudah Dibeli"
-                                    <?= $status === "Sudah Dibeli" ? "selected" : "" ?>>
-                                    Sudah Dibeli
-                                </option>
-                            </select>
                         </div>
 
                         <div class="d-flex gap-2">

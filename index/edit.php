@@ -2,6 +2,7 @@
 <?php
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
+require_once __DIR__ . "/../pembayaran.php";
 auth_require_login();
 
 $id = filter_input(INPUT_GET, "id", FILTER_VALIDATE_INT);
@@ -48,10 +49,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $kategori = $_POST["kategori"] ?? "";
     $jenis = $_POST["jenis"] ?? "";
     $harga = $_POST["harga"] ?? "";
-    $status = $_POST["status"] ?? "";
 
     $jenis_valid = ["Kebutuhan", "Keinginan"];
-    $status_valid = ["Belum Dibeli", "Sudah Dibeli"];
 
     if (
         !auth_verify_csrf($_POST["csrf_token"] ?? null) ||
@@ -61,50 +60,51 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $harga === "" ||
         !is_numeric($harga) ||
         !is_finite((float) $harga) ||
-        (float) $harga < 0 ||
-        !in_array($status, $status_valid, true)
+        (float) $harga <= 0
     ) {
         $pesan = auth_verify_csrf($_POST["csrf_token"] ?? null)
             ? "Periksa kembali data yang kamu masukkan."
             : "Sesi formulir kedaluwarsa. Silakan muat ulang halaman.";
     } else {
-        $stmt = mysqli_prepare(
-            $koneksi,
-            "UPDATE barang
-             SET nama_barang = ?,
-                 kategori = ?,
-                 jenis = ?,
-                 harga = ?,
-                 status = ?
-             WHERE id_barang = ?"
-        );
+        try {
+            mysqli_begin_transaction($koneksi);
+            $stmt = mysqli_prepare(
+                $koneksi,
+                "UPDATE barang
+                 SET nama_barang = ?,
+                     kategori = ?,
+                     jenis = ?,
+                     harga = ?
+                 WHERE id_barang = ?"
+            );
 
-        mysqli_stmt_bind_param(
-            $stmt,
-            "sssdsi",
-            $nama_barang,
-            $kategori,
-            $jenis,
-            $harga,
-            $status,
-            $id
-        );
-
-        if (mysqli_stmt_execute($stmt)) {
+            mysqli_stmt_bind_param(
+                $stmt,
+                "sssdi",
+                $nama_barang,
+                $kategori,
+                $jenis,
+                $harga,
+                $id
+            );
+            mysqli_stmt_execute($stmt);
             mysqli_stmt_close($stmt);
+            pembayaran_sinkronkan_status($koneksi, $id);
+            mysqli_commit($koneksi);
             header("Location: daftar.php");
             exit;
+        } catch (mysqli_sql_exception $exception) {
+            mysqli_rollback($koneksi);
+            error_log("Wishlist PJK item update failed: " . $exception->getMessage());
+            $pesan = "Barang gagal diperbarui.";
         }
 
-        $pesan = "Barang gagal diperbarui.";
-        mysqli_stmt_close($stmt);
     }
 
     $barang["nama_barang"] = $nama_barang;
     $barang["kategori"] = $kategori;
     $barang["jenis"] = $jenis;
     $barang["harga"] = $harga;
-    $barang["status"] = $status;
 }
 ?>
 
@@ -201,28 +201,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 id="harga"
                                 name="harga"
                                 class="form-control"
-                                min="0"
+                                min="0.01"
                                 step="0.01"
                                 value="<?= htmlspecialchars((string) $barang["harga"], ENT_QUOTES, "UTF-8") ?>"
                                 required>
-                        </div>
-
-                        <div class="mb-4">
-                            <label for="status" class="form-label">
-                                Status
-                            </label>
-                            <select id="status" name="status"
-                                    class="form-select" required>
-                                <option value="Belum Dibeli"
-                                    <?= $barang["status"] === "Belum Dibeli" ? "selected" : "" ?>>
-                                    Belum Dibeli
-                                </option>
-
-                                <option value="Sudah Dibeli"
-                                    <?= $barang["status"] === "Sudah Dibeli" ? "selected" : "" ?>>
-                                    Sudah Dibeli
-                                </option>
-                            </select>
                         </div>
 
                         <div class="d-flex gap-2">

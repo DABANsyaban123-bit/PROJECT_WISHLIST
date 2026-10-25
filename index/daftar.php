@@ -2,6 +2,7 @@
 <?php
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
+require_once __DIR__ . "/../pembayaran.php";
 auth_require_login();
 
 function e($value) {
@@ -14,24 +15,22 @@ function rupiah($angka) {
 
 $cari = trim($_GET["cari"] ?? "");
 $kategori = trim($_GET["kategori"] ?? "");
-$status = trim($_GET["status"] ?? "");
 $jenis_filter = trim($_GET["jenis"] ?? "");
 
 $jenis_valid = ["Kebutuhan", "Keinginan"];
-$status_valid = ["Belum Dibeli", "Sudah Dibeli"];
 
 if (!in_array($jenis_filter, $jenis_valid, true)) {
     $jenis_filter = "";
 }
 
-if (!in_array($status, $status_valid, true)) {
-    $status = "";
-}
+$total_bayar_sql = pembayaran_total_sql("b");
 
 $sql = "
-    SELECT b.*
+    SELECT b.*,
+           ($total_bayar_sql) AS total_dibayar,
+           GREATEST(b.harga - ($total_bayar_sql), 0) AS sisa_pembayaran
     FROM barang b
-    WHERE 1 = 1
+    WHERE ($total_bayar_sql) < b.harga
 ";
 
 $conditions = [];
@@ -47,12 +46,6 @@ if ($cari !== "") {
 if ($kategori !== "") {
     $conditions[] = "b.kategori = ?";
     $params[] = $kategori;
-    $types .= "s";
-}
-
-if ($status !== "") {
-    $conditions[] = "b.status = ?";
-    $params[] = $status;
     $types .= "s";
 }
 
@@ -94,11 +87,11 @@ mysqli_stmt_close($stmt);
 $query_statistik = mysqli_query($koneksi, "
     SELECT
         COUNT(*) AS total,
-        COALESCE(SUM(status = 'Sudah Dibeli'), 0) AS sudah,
-        COALESCE(SUM(status = 'Belum Dibeli'), 0) AS belum,
-        COALESCE(SUM(jenis = 'Kebutuhan'), 0) AS kebutuhan,
-        COALESCE(SUM(jenis = 'Keinginan'), 0) AS keinginan
-    FROM barang
+        COALESCE(SUM(($total_bayar_sql) >= b.harga), 0) AS sudah,
+        COALESCE(SUM(($total_bayar_sql) < b.harga), 0) AS belum,
+        COALESCE(SUM(b.jenis = 'Kebutuhan'), 0) AS kebutuhan,
+        COALESCE(SUM(b.jenis = 'Keinginan'), 0) AS keinginan
+    FROM barang b
 ");
 
 $stat = mysqli_fetch_assoc($query_statistik);
@@ -505,7 +498,7 @@ $query_error = "";
     <div class="page-heading">
         <div>
             <h1>Daftar Barang</h1>
-            <p>Lihat semua barang dan statusnya. Barang yang dicatat di pengeluaran akan otomatis ditandai sudah dibeli.</p>
+            <p>Daftar ini menampilkan barang yang belum lunas. Barang yang sudah lunas tetap tersimpan dan riwayatnya tersedia di halaman pengeluaran.</p>
         </div>
 
         <a href="tambah.php" class="btn btn-gold">
@@ -528,7 +521,7 @@ $query_error = "";
             <div class="stat-card">
                 <div class="stat-icon icon-green"><i class="bi bi-check-circle"></i></div>
                 <div>
-                    <div class="stat-label">Sudah Dibeli</div>
+                    <div class="stat-label">Lunas</div>
                     <div class="stat-number"><?= $total_sudah ?></div>
                 </div>
             </div>
@@ -538,7 +531,7 @@ $query_error = "";
             <div class="stat-card">
                 <div class="stat-icon icon-gold"><i class="bi bi-shield-check"></i></div>
                 <div>
-                    <div class="stat-label">Kebutuhan</div>
+                    <div class="stat-label">Kebutuhan Aktif</div>
                     <div class="stat-number"><?= $total_kebutuhan ?></div>
                 </div>
             </div>
@@ -548,7 +541,7 @@ $query_error = "";
             <div class="stat-card">
                 <div class="stat-icon icon-blue"><i class="bi bi-stars"></i></div>
                 <div>
-                    <div class="stat-label">Keinginan</div>
+                    <div class="stat-label">Keinginan Aktif</div>
                     <div class="stat-number"><?= $total_keinginan ?></div>
                 </div>
             </div>
@@ -559,7 +552,7 @@ $query_error = "";
         <div class="panel-heading">
             <div>
                 <h5><i class="bi bi-funnel me-2"></i>Filter Barang</h5>
-                <p class="text-secondary small mb-0">Cari dan saring daftar tanpa perlu memuat ulang halaman.</p>
+                <p class="text-secondary small mb-0">Cari barang yang masih memiliki sisa pembayaran.</p>
             </div>
         </div>
 
@@ -600,20 +593,7 @@ $query_error = "";
                     </select>
                 </div>
 
-                <div class="col-lg-2 col-md-6">
-                    <label class="filter-label" for="status">Status</label>
-                    <select class="form-select" id="status" name="status" data-filter-select>
-                        <option value="">Semua status</option>
-                        <option value="Belum Dibeli" <?= $status === "Belum Dibeli" ? "selected" : "" ?>>
-                            Belum Dibeli
-                        </option>
-                        <option value="Sudah Dibeli" <?= $status === "Sudah Dibeli" ? "selected" : "" ?>>
-                            Sudah Dibeli
-                        </option>
-                    </select>
-                </div>
-
-                <div class="col-lg-2 col-md-12 d-flex gap-2">
+                <div class="col-lg-4 col-md-12 d-flex gap-2">
                     <button type="submit" class="btn btn-filter flex-grow-1" data-filter-submit>
                         <i class="bi bi-search me-1"></i> Cari
                     </button>
@@ -636,7 +616,7 @@ $query_error = "";
                 </div>
                 <div>
                     <h5>Daftar Kebutuhan</h5>
-                    <p>Barang penting beserta status pembeliannya.</p>
+                    <p>Barang penting yang masih belum lunas.</p>
                 </div>
             </div>
             <span class="section-count"><?= count($kebutuhan) ?> barang</span>
@@ -650,7 +630,9 @@ $query_error = "";
                         <th>Nama Barang</th>
                         <th>Kategori</th>
                         <th>Harga</th>
-                        <th>Status</th>
+                        <th>Total Dibayar</th>
+                        <th>Sisa Pembayaran</th>
+                        <th>Status Pembayaran</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -661,14 +643,16 @@ $query_error = "";
                         <tr data-filter-row
                             data-kind="<?= e($barang["jenis"]) ?>"
                             data-category="<?= e($barang["kategori"]) ?>"
-                            data-status="<?= e($barang["status"]) ?>">
+                            data-status="Belum Lunas">
                             <td><?= $i + 1 ?></td>
                             <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
                             <td><?= e($barang["kategori"]) ?></td>
                             <td class="money"><?= rupiah($barang["harga"]) ?></td>
+                            <td class="money"><?= rupiah($barang["total_dibayar"]) ?></td>
+                            <td class="money"><?= rupiah($barang["sisa_pembayaran"]) ?></td>
                             <td>
-                                <span class="badge-status <?= $barang["status"] === "Sudah Dibeli" ? "status-sudah" : "status-belum" ?>">
-                                    <?= e($barang["status"]) ?>
+                                <span class="badge-status status-belum">
+                                    Belum Lunas
                                 </span>
                             </td>
                             <td class="text-nowrap">
@@ -691,14 +675,14 @@ $query_error = "";
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="6" class="empty-state">
+                        <td colspan="8" class="empty-state">
                             <i class="bi bi-inbox"></i>
                             Belum ada kebutuhan yang sesuai dengan filter.
                         </td>
                     </tr>
                 <?php endif; ?>
                     <tr class="filter-no-results d-none">
-                        <td colspan="6" class="empty-state">Tidak ada barang yang cocok dengan filter.</td>
+                        <td colspan="8" class="empty-state">Tidak ada barang yang cocok dengan filter.</td>
                     </tr>
                 </tbody>
             </table>
@@ -714,7 +698,7 @@ $query_error = "";
                 </div>
                 <div>
                     <h5>Daftar Keinginan</h5>
-                    <p>Barang yang ingin kamu miliki setelah kebutuhan terpenuhi.</p>
+                    <p>Barang yang ingin dimiliki dan masih belum lunas.</p>
                 </div>
             </div>
             <span class="section-count"><?= count($keinginan) ?> barang</span>
@@ -728,7 +712,9 @@ $query_error = "";
                         <th>Nama Barang</th>
                         <th>Kategori</th>
                         <th>Harga</th>
-                        <th>Status</th>
+                        <th>Total Dibayar</th>
+                        <th>Sisa Pembayaran</th>
+                        <th>Status Pembayaran</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -739,14 +725,16 @@ $query_error = "";
                         <tr data-filter-row
                             data-kind="<?= e($barang["jenis"]) ?>"
                             data-category="<?= e($barang["kategori"]) ?>"
-                            data-status="<?= e($barang["status"]) ?>">
+                            data-status="Belum Lunas">
                             <td><?= $i + 1 ?></td>
                             <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
                             <td><?= e($barang["kategori"]) ?></td>
                             <td class="money"><?= rupiah($barang["harga"]) ?></td>
+                            <td class="money"><?= rupiah($barang["total_dibayar"]) ?></td>
+                            <td class="money"><?= rupiah($barang["sisa_pembayaran"]) ?></td>
                             <td>
-                                <span class="badge-status <?= $barang["status"] === "Sudah Dibeli" ? "status-sudah" : "status-belum" ?>">
-                                    <?= e($barang["status"]) ?>
+                                <span class="badge-status status-belum">
+                                    Belum Lunas
                                 </span>
                             </td>
                             <td class="text-nowrap">
@@ -769,14 +757,14 @@ $query_error = "";
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="6" class="empty-state">
+                        <td colspan="8" class="empty-state">
                             <i class="bi bi-inbox"></i>
                             Belum ada keinginan yang sesuai dengan filter.
                         </td>
                     </tr>
                 <?php endif; ?>
                     <tr class="filter-no-results d-none">
-                        <td colspan="6" class="empty-state">Tidak ada barang yang cocok dengan filter.</td>
+                        <td colspan="8" class="empty-state">Tidak ada barang yang cocok dengan filter.</td>
                     </tr>
                 </tbody>
             </table>
@@ -784,7 +772,7 @@ $query_error = "";
     </section>
 
     <div class="footer-note">
-        Wishlist PJK &mdash; Barang yang dicatat sebagai pengeluaran tetap terlihat di sini dengan status Sudah Dibeli.
+        Wishlist PJK &mdash; Barang lunas tersimpan dan riwayat pembayarannya tetap tersedia di halaman Pengeluaran.
     </div>
 
 </main>

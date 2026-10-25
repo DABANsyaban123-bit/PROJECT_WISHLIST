@@ -38,6 +38,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $nama = is_string($nama_input) ? trim($nama_input) : "";
     $id_barang_input = is_string($id_barang_input) ? $id_barang_input : "";
     $jumlah_input = is_string($jumlah_post) ? $jumlah_post : "";
+    $jumlah = nominal_normalisasi($jumlah_input);
     $tanggal = is_string($tanggal_post) ? $tanggal_post : "";
     $catatan = is_string($catatan_input) ? trim($catatan_input) : "";
     $id_barang_dipilih = $id_barang_input;
@@ -55,9 +56,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $tanggal_valid = $tanggal_valid
         && $tanggal_valid->format("Y-m-d") === $tanggal;
 
-    $jumlah_valid = is_numeric($jumlah_input)
-        && is_finite((float) $jumlah_input)
-        && (float) $jumlah_input > 0;
+    $jumlah_valid = $jumlah !== null && $jumlah > 0;
 
     if (
         !auth_verify_csrf($_POST["csrf_token"] ?? null) ||
@@ -162,7 +161,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         $update,
                         "sdssi",
                         $nama,
-                        $jumlah_input,
+                        $jumlah,
                         $tanggal,
                         $catatan,
                         $id
@@ -183,7 +182,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         "isdssi",
                         $id_barang,
                         $nama,
-                        $jumlah_input,
+                        $jumlah,
                         $tanggal,
                         $catatan,
                         $id
@@ -307,13 +306,14 @@ $query_barang = mysqli_stmt_get_result($stmt_barang);
                                 <div class="mb-3">
                                     <label class="form-label">Jumlah (Rp)</label>
                                     <input
-                                        type="number"
+                                        type="text"
                                         name="jumlah"
                                         class="form-control"
-                                        min="0.01"
-                                        step="0.01"
+                                        inputmode="decimal"
+                                        data-rupiah-input
                                         required
-                                        value="<?= htmlspecialchars((string) $data['jumlah']) ?>">
+                                        value="<?= htmlspecialchars(nominal_format_input($data['jumlah'])) ?>">
+                                    <div class="form-text">Pemisah ribuan otomatis; gunakan koma untuk nilai sen.</div>
                                 </div>
 
                                 <div class="mb-3">

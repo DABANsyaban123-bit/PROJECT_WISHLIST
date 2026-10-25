@@ -1,6 +1,42 @@
 "use strict";
 
+const formatRupiahDigits = (rawValue) => {
+    const [rawInteger, rawDecimal = ""] = rawValue.split(",");
+    const integer = rawInteger.replace(/\D/g, "").replace(/^0+(?=\d)/, "") || "0";
+    const decimal = rawDecimal.replace(/\D/g, "").slice(0, 2);
+    const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return decimal ? `${grouped},${decimal}` : grouped;
+};
+
+const formatRupiahRaw = (rawValue) => {
+    const normalized = String(rawValue).trim().replace(",", ".");
+    if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
+        return "";
+    }
+
+    const [integer, decimal] = normalized.split(".");
+    return formatRupiahDigits(decimal ? `${integer},${decimal}` : integer);
+};
+
+const prepareRupiahInputs = (form) => {
+    const inputs = Array.from(form.querySelectorAll("[data-rupiah-input]"));
+    inputs.forEach((input) => {
+        input.value = formatRupiahDigits(input.value);
+        input.addEventListener("input", () => {
+            input.value = formatRupiahDigits(input.value);
+        });
+    });
+
+    form.addEventListener("submit", () => {
+        inputs.forEach((input) => {
+            input.value = input.value.replace(/\./g, "").replace(",", ".");
+        });
+    });
+};
+
 const initializeWishlistInteractions = () => {
+    document.querySelectorAll("form").forEach(prepareRupiahInputs);
+
     document.querySelectorAll("[data-live-filter]").forEach((form) => {
         const searchInput = form.querySelector("[data-filter-search]");
         const selects = Array.from(form.querySelectorAll("[data-filter-select]"));
@@ -69,7 +105,7 @@ const initializeWishlistInteractions = () => {
                 if (nameInput.value === suggestedName) {
                     nameInput.value = "";
                 }
-                if (amountInput.value === suggestedAmount) {
+                if (amountInput.value === formatRupiahRaw(suggestedAmount)) {
                     amountInput.value = "";
                 }
                 suggestedName = "";
@@ -81,7 +117,8 @@ const initializeWishlistInteractions = () => {
             suggestedName = `Pembelian ${option.dataset.nama || option.textContent.trim()}`;
             suggestedAmount = option.dataset.harga || "";
             nameInput.value = suggestedName;
-            amountInput.value = suggestedAmount;
+            amountInput.value = formatRupiahRaw(suggestedAmount);
+            amountInput.dispatchEvent(new Event("input", { bubbles: true }));
             nameInput.readOnly = true;
         });
 
@@ -93,7 +130,8 @@ const initializeWishlistInteractions = () => {
                 nameInput.value = suggestedName;
             }
             if (!amountInput.value) {
-                amountInput.value = suggestedAmount;
+                amountInput.value = formatRupiahRaw(suggestedAmount);
+                amountInput.dispatchEvent(new Event("input", { bubbles: true }));
             }
             nameInput.readOnly = true;
         }

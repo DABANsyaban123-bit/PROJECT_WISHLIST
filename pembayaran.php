@@ -1,5 +1,48 @@
 <?php
 
+function nominal_normalisasi(mixed $nilai): ?float
+{
+    if (!is_string($nilai) && !is_numeric($nilai)) {
+        return null;
+    }
+
+    $nilai = trim((string) $nilai);
+    $nilai = preg_replace('/^(?:Rp\.?\s*)/i', '', $nilai);
+    $nilai = str_replace(' ', '', $nilai);
+
+    if ($nilai === '') {
+        return null;
+    }
+
+    if (str_contains($nilai, ',')) {
+        if (!preg_match('/^\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?$|^\d+(?:,\d{1,2})?$/', $nilai)) {
+            return null;
+        }
+
+        $nilai = str_replace('.', '', $nilai);
+        $nilai = str_replace(',', '.', $nilai);
+    } elseif (preg_match('/^\d{1,3}(?:\.\d{3})+$/', $nilai)) {
+        $nilai = str_replace('.', '', $nilai);
+    } elseif (!preg_match('/^\d+(?:\.\d{1,2})?$/', $nilai)) {
+        return null;
+    }
+
+    $jumlah = (float) $nilai;
+    return is_finite($jumlah) ? $jumlah : null;
+}
+
+function nominal_format_input(mixed $nilai): string
+{
+    $jumlah = nominal_normalisasi($nilai);
+
+    if ($jumlah === null) {
+        return '';
+    }
+
+    $desimal = (int) round(($jumlah - floor($jumlah)) * 100);
+    return number_format($jumlah, $desimal > 0 ? 2 : 0, ',', '.');
+}
+
 function pembayaran_total_sql(string $barang_alias = "b"): string
 {
     if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $barang_alias)) {

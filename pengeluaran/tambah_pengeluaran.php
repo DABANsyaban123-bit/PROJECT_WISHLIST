@@ -25,7 +25,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $tanggal_input = $_POST["tanggal_pengeluaran"] ?? "";
     $catatan_input = $_POST["catatan"] ?? "";
     $nama_pengeluaran = is_string($nama_input) ? trim($nama_input) : "";
-    $jumlah = is_string($jumlah_input) ? $jumlah_input : "";
+    $jumlah_input = is_string($jumlah_input) ? $jumlah_input : "";
+    $jumlah = nominal_normalisasi($jumlah_input);
     $tanggal_pengeluaran = is_string($tanggal_input) ? $tanggal_input : "";
     $catatan = is_string($catatan_input) ? trim($catatan_input) : "";
     $id_barang_form = $id_barang_raw;
@@ -39,10 +40,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         !auth_verify_csrf($_POST["csrf_token"] ?? null) ||
         $nama_pengeluaran === "" ||
         strlen($nama_pengeluaran) > 150 ||
-        $jumlah === "" ||
-        !is_numeric($jumlah) ||
-        !is_finite((float) $jumlah) ||
-        (float) $jumlah <= 0 ||
+        $jumlah === null ||
+        $jumlah <= 0 ||
         $tanggal_valid === false ||
         $tanggal_valid->format("Y-m-d") !== $tanggal_pengeluaran ||
         strlen($catatan) > 255 ||
@@ -269,16 +268,17 @@ $jumlah_barang_tersedia = mysqli_num_rows($query_barang);
                                 Jumlah Pengeluaran (Rp)
                             </label>
                             <input
-                                type="number"
+                                type="text"
                                 id="jumlah"
                                 name="jumlah"
                                 class="form-control"
                                 data-purchase-amount
-                                min="0.01"
-                                step="0.01"
-                                value="<?= htmlspecialchars((string) $jumlah, ENT_QUOTES, "UTF-8") ?>"
-                                placeholder="Contoh: 150000"
+                                inputmode="decimal"
+                                data-rupiah-input
+                                value="<?= htmlspecialchars(nominal_format_input($jumlah ?? $jumlah_input ?? ''), ENT_QUOTES, "UTF-8") ?>"
+                                placeholder="Contoh: 150.000"
                                 required>
+                            <div class="form-text">Pemisah ribuan otomatis; gunakan koma untuk nilai sen.</div>
                         </div>
 
                         <div class="mb-3">

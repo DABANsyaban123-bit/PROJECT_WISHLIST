@@ -2,6 +2,7 @@
 <?php
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
+require_once __DIR__ . "/../pembayaran.php";
 auth_require_login();
 
 $pesan = "";
@@ -24,7 +25,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $nama_barang = trim($_POST["nama_barang"] ?? "");
     $kategori = trim($_POST["kategori"] ?? "");
     $jenis = $_POST["jenis"] ?? "Keinginan";
-    $harga = $_POST["harga"] ?? "";
+    $harga_input = $_POST["harga"] ?? "";
+    $harga = nominal_normalisasi($harga_input);
     $jenis_valid = ["Kebutuhan", "Keinginan"];
 
     if (
@@ -32,10 +34,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $nama_barang === "" ||
         !in_array($kategori, $daftar_kategori, true) ||
         !in_array($jenis, $jenis_valid, true) ||
-        $harga === "" ||
-        !is_numeric($harga) ||
-        !is_finite((float) $harga) ||
-        (float) $harga <= 0
+        $harga === null ||
+        $harga <= 0
     ) {
         $pesan = auth_verify_csrf($_POST["csrf_token"] ?? null)
             ? "Periksa kembali data yang kamu masukkan."
@@ -171,15 +171,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 Harga (Rp)
                             </label>
                             <input
-                                type="number"
+                                type="text"
                                 id="harga"
                                 name="harga"
                                 class="form-control"
-                                min="0.01"
-                                step="0.01"
-                                value="<?= htmlspecialchars((string) $harga, ENT_QUOTES, "UTF-8") ?>"
-                                placeholder="Contoh: 150000"
+                                inputmode="decimal"
+                                data-rupiah-input
+                                value="<?= htmlspecialchars(nominal_format_input($harga ?? ''), ENT_QUOTES, "UTF-8") ?>"
+                                placeholder="Contoh: 20.000.000"
                                 required>
+                            <div class="form-text">Pemisah ribuan otomatis; gunakan koma untuk nilai sen.</div>
                         </div>
 
                         <div class="d-flex gap-2">

@@ -24,7 +24,7 @@ $akun_tersedia = (int) mysqli_fetch_assoc($result_akun)["total"] > 0;
     <title>Wishlist PJK | Rencanakan dengan tenang</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="UI.css">
+    <link rel="stylesheet" href="UI.css?v=20261025">
 </head>
 <body class="landing-page">
     <nav class="landing-nav">

@@ -500,7 +500,7 @@ for ($i = 6; $i >= 0; $i--) {
             <p>Kelola daftar belanja dan pantau pengeluaranmu dari satu tempat.</p>
         </div>
         <div class="page-actions">
-            <a href="../pengeluaran/tambah_pengeluaran.php" class="btn btn-outline-primary">
+            <a href="../pengeluaran/pengeluaran.php" class="btn btn-outline-primary">
                 <i class="bi bi-plus-circle me-1"></i> Catat Pengeluaran
             </a>
             <a href="daftar.php" class="btn btn-gold">

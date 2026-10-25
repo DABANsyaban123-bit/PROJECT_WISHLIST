@@ -19,8 +19,8 @@ $query_total = mysqli_query($koneksi, "
         COUNT(*) AS total,
         COALESCE(SUM(($total_bayar_sql) >= b.harga), 0) AS sudah,
         COALESCE(SUM(($total_bayar_sql) < b.harga), 0) AS belum,
-        COALESCE(SUM(b.jenis = 'Kebutuhan'), 0) AS kebutuhan,
-        COALESCE(SUM(b.jenis = 'Keinginan'), 0) AS keinginan
+        COALESCE(SUM(($total_bayar_sql) < b.harga AND b.jenis = 'Kebutuhan'), 0) AS kebutuhan,
+        COALESCE(SUM(($total_bayar_sql) < b.harga AND b.jenis = 'Keinginan'), 0) AS keinginan
     FROM barang b
 ");
 

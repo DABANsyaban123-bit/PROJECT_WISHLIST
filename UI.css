@@ -814,6 +814,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .landing-page {
     min-height: 100vh;
+    overflow-x: hidden;
     background:
         radial-gradient(circle at 80% 9%, rgba(214, 174, 88, .14), transparent 24rem),
         var(--cream) !important;
@@ -950,6 +951,7 @@ h1, h2, h3, h4, h5, h6 {
     display: grid;
     min-height: 470px;
     place-items: center;
+    overflow: hidden;
 }
 
 .landing-orbit {
@@ -1103,7 +1105,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .landing-floating-note {
     position: absolute;
-    right: -7px;
+    right: 8px;
     bottom: 40px;
     z-index: 2;
     display: flex;

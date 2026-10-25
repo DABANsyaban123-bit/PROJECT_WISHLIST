@@ -17,6 +17,10 @@ body {
     font-family: "Segoe UI", Arial, sans-serif;
 }
 
+.bg-light {
+    background-color: var(--cream) !important;
+}
+
 h1, h2, h3, h4, h5, h6 {
     color: var(--navy);
 }

@@ -638,7 +638,6 @@ $query_pengeluaran = mysqli_stmt_get_result($stmt_pengeluaran);
                                     <th colspan="8"><?= htmlspecialchars($label_bulan, ENT_QUOTES, 'UTF-8') ?></th>
                                 </tr>
                             <?php endif; ?>
-                            ?>
 
                                 <tr>
                                     <td><?= $no++ ?></td>

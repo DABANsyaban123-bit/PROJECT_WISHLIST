@@ -3,6 +3,30 @@ include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
 auth_require_login();
 
+$cari_input = $_GET["cari"] ?? "";
+$cari = is_string($cari_input) ? trim($cari_input) : "";
+$dari = is_string($_GET["dari"] ?? null) ? $_GET["dari"] : "";
+$sampai = is_string($_GET["sampai"] ?? null) ? $_GET["sampai"] : "";
+$bulan = is_string($_GET["bulan"] ?? null) ? $_GET["bulan"] : "";
+$urutan = is_string($_GET["urutan"] ?? null) ? $_GET["urutan"] : "terbaru";
+$urutan = in_array($urutan, ["terbaru", "terlama"], true) ? $urutan : "terbaru";
+
+foreach (["dari", "sampai"] as $parameter_tanggal) {
+    $nilai_tanggal = $$parameter_tanggal;
+    $tanggal_valid = DateTime::createFromFormat("!Y-m-d", $nilai_tanggal);
+    if (
+        $nilai_tanggal !== "" &&
+        (!$tanggal_valid || $tanggal_valid->format("Y-m-d") !== $nilai_tanggal)
+    ) {
+        $$parameter_tanggal = "";
+    }
+}
+
+$bulan_valid = DateTime::createFromFormat("!Y-m", $bulan);
+if ($bulan !== "" && (!$bulan_valid || $bulan_valid->format("Y-m") !== $bulan)) {
+    $bulan = "";
+}
+
 // Ringkasan pengeluaran
 $query_total = mysqli_query($koneksi, "
     SELECT COALESCE(SUM(jumlah), 0) AS total
@@ -26,8 +50,39 @@ $query_bulan = mysqli_query($koneksi, "
 ");
 $total_bulan = mysqli_fetch_assoc($query_bulan)['total'];
 
-// Mengambil riwayat pengeluaran beserta nama barang
-$query_pengeluaran = mysqli_query($koneksi, "
+// Riwayat transaksi dapat disaring tanpa mengubah ringkasan seluruh pengeluaran.
+$kondisi = [];
+$parameter = [];
+$tipe_parameter = "";
+
+if ($cari !== "") {
+    $kondisi[] = "(p.nama_pengeluaran LIKE ? OR b.nama_barang LIKE ? OR p.catatan LIKE ?)";
+    $kata_kunci = "%" . $cari . "%";
+    array_push($parameter, $kata_kunci, $kata_kunci, $kata_kunci);
+    $tipe_parameter .= "sss";
+}
+
+if ($dari !== "") {
+    $kondisi[] = "p.tanggal_pengeluaran >= ?";
+    $parameter[] = $dari;
+    $tipe_parameter .= "s";
+}
+
+if ($sampai !== "") {
+    $kondisi[] = "p.tanggal_pengeluaran <= ?";
+    $parameter[] = $sampai;
+    $tipe_parameter .= "s";
+}
+
+if ($bulan !== "") {
+    $kondisi[] = "DATE_FORMAT(p.tanggal_pengeluaran, '%Y-%m') = ?";
+    $parameter[] = $bulan;
+    $tipe_parameter .= "s";
+}
+
+$where = $kondisi ? "WHERE " . implode(" AND ", $kondisi) : "";
+$arah_urutan = $urutan === "terlama" ? "ASC" : "DESC";
+$stmt_pengeluaran = mysqli_prepare($koneksi, "
     SELECT p.*, b.nama_barang, b.harga AS harga_barang,
            (
                SELECT COUNT(*)
@@ -43,13 +98,24 @@ $query_pengeluaran = mysqli_query($koneksi, "
     FROM pengeluaran AS p
     LEFT JOIN barang AS b
         ON p.id_barang = b.id_barang
-    ORDER BY p.tanggal_pengeluaran DESC,
-             p.id_pengeluaran DESC
+    $where
+    ORDER BY p.tanggal_pengeluaran $arah_urutan,
+             p.id_pengeluaran $arah_urutan
 ");
 
-if (!$query_pengeluaran) {
-    die("Gagal mengambil riwayat pengeluaran: " . mysqli_error($koneksi));
+if (!$stmt_pengeluaran) {
+    die("Gagal menyiapkan riwayat pengeluaran: " . mysqli_error($koneksi));
 }
+
+if ($parameter) {
+    mysqli_stmt_bind_param($stmt_pengeluaran, $tipe_parameter, ...$parameter);
+}
+
+if (!mysqli_stmt_execute($stmt_pengeluaran)) {
+    die("Gagal mengambil riwayat pengeluaran: " . mysqli_stmt_error($stmt_pengeluaran));
+}
+
+$query_pengeluaran = mysqli_stmt_get_result($stmt_pengeluaran);
 ?>
 
 <!DOCTYPE html>
@@ -479,13 +545,48 @@ if (!$query_pengeluaran) {
                         </p>
                     </div>
 
-                    <input
-                        type="search"
-                        id="cariPengeluaran"
-                        class="form-control expense-search"
-                        placeholder="Cari nama atau barang..."
-                        aria-label="Cari riwayat pengeluaran">
                 </div>
+
+                <form method="GET" action="pengeluaran.php" class="history-filter row g-3 align-items-end">
+                    <div class="col-lg-4 col-md-6">
+                        <label class="form-label" for="cariPengeluaran">Cari transaksi</label>
+                        <input
+                            type="search"
+                            id="cariPengeluaran"
+                            name="cari"
+                            class="form-control"
+                            value="<?= htmlspecialchars($cari, ENT_QUOTES, 'UTF-8') ?>"
+                            placeholder="Nama, barang, atau catatan...">
+                    </div>
+                    <div class="col-lg-2 col-md-6">
+                        <label class="form-label" for="dari">Dari tanggal</label>
+                        <input type="date" id="dari" name="dari" class="form-control"
+                               value="<?= htmlspecialchars($dari, ENT_QUOTES, 'UTF-8') ?>">
+                    </div>
+                    <div class="col-lg-2 col-md-6">
+                        <label class="form-label" for="sampai">Sampai tanggal</label>
+                        <input type="date" id="sampai" name="sampai" class="form-control"
+                               value="<?= htmlspecialchars($sampai, ENT_QUOTES, 'UTF-8') ?>">
+                    </div>
+                    <div class="col-lg-2 col-md-6">
+                        <label class="form-label" for="bulan">Bulan</label>
+                        <input type="month" id="bulan" name="bulan" class="form-control"
+                               value="<?= htmlspecialchars($bulan, ENT_QUOTES, 'UTF-8') ?>">
+                    </div>
+                    <div class="col-lg-2 col-md-6">
+                        <label class="form-label" for="urutan">Urutan tanggal</label>
+                        <select id="urutan" name="urutan" class="form-select">
+                            <option value="terbaru" <?= $urutan === "terbaru" ? "selected" : "" ?>>Terbaru</option>
+                            <option value="terlama" <?= $urutan === "terlama" ? "selected" : "" ?>>Terlama</option>
+                        </select>
+                    </div>
+                    <div class="col-12 d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-funnel me-1"></i> Terapkan filter
+                        </button>
+                        <a href="pengeluaran.php" class="btn btn-outline-secondary">Reset</a>
+                    </div>
+                </form>
             </div>
 
             <div class="expense-panel-body">
@@ -510,9 +611,25 @@ if (!$query_pengeluaran) {
 
                             <?php
                             $no = 1;
+                            $bulan_sebelumnya = "";
 
                             if (mysqli_num_rows($query_pengeluaran) > 0):
                                 while ($data = mysqli_fetch_assoc($query_pengeluaran)):
+                                    $bulan_ini = date("Y-m", strtotime($data["tanggal_pengeluaran"]));
+                                    if ($bulan_ini !== $bulan_sebelumnya):
+                                        $bulan_sebelumnya = $bulan_ini;
+                                        $nama_bulan = [
+                                            1 => "Januari", "Februari", "Maret", "April",
+                                            "Mei", "Juni", "Juli", "Agustus",
+                                            "September", "Oktober", "November", "Desember"
+                                        ];
+                                        $label_bulan = $nama_bulan[(int) date("n", strtotime($data["tanggal_pengeluaran"]))]
+                                            . " " . date("Y", strtotime($data["tanggal_pengeluaran"]));
+                            ?>
+                                <tr class="expense-month-group">
+                                    <th colspan="8"><?= htmlspecialchars($label_bulan, ENT_QUOTES, 'UTF-8') ?></th>
+                                </tr>
+                            <?php endif; ?>
                             ?>
 
                                 <tr>
@@ -641,8 +758,8 @@ if (!$query_pengeluaran) {
                                             Belum Ada Pengeluaran
                                         </h5>
 
-                                        <p class="mb-3">
-                                            Pengeluaran yang kamu catat akan muncul di sini.
+                                                        <p class="mb-3">
+                                                            Transaksi yang cocok dengan filter akan muncul di sini.
                                         </p>
 
                                         <a
@@ -659,14 +776,6 @@ if (!$query_pengeluaran) {
                         </tbody>
                     </table>
 
-                    <div
-                        id="hasilKosong"
-                        class="text-center text-secondary py-4 d-none">
-
-                        Tidak ada pengeluaran yang cocok dengan pencarian.
-
-                    </div>
-
                 </div>
             </div>
         </section>
@@ -679,43 +788,6 @@ if (!$query_pengeluaran) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../app.js" defer></script>
-
-    <script>
-        const inputCari = document.getElementById('cariPengeluaran');
-        const tabelPengeluaran = document.getElementById('tabelPengeluaran');
-        const hasilKosong = document.getElementById('hasilKosong');
-
-        inputCari.addEventListener('input', function () {
-            const kataKunci = this.value.toLowerCase().trim();
-            const semuaBaris = tabelPengeluaran.querySelectorAll('tr');
-            let jumlahCocok = 0;
-
-            semuaBaris.forEach(function (baris) {
-                // Baris pesan saat tabel kosong tidak ikut difilter
-                if (baris.querySelector('.expense-empty')) {
-                    return;
-                }
-
-                const teks = baris.textContent.toLowerCase();
-                const cocok = teks.includes(kataKunci);
-
-                baris.style.display = cocok ? '' : 'none';
-
-                if (cocok) {
-                    jumlahCocok++;
-                }
-            });
-
-            const punyaData = Array.from(semuaBaris).some(function (baris) {
-                return !baris.querySelector('.expense-empty');
-            });
-
-            hasilKosong.classList.toggle(
-                'd-none',
-                !(punyaData && jumlahCocok === 0)
-            );
-        });
-    </script>
 
 </body>
 </html>

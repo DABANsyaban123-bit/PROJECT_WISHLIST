@@ -3,7 +3,7 @@
     --navy-dark: #1c2e52;
     --navy-soft: #eaf0fa;
     --gold: #d6ae58;
-    --cream: #f5f6fa;
+    --cream: #f7f4ec;
     --text: #24324a;
     --muted: #5f6c80;
     --surface: #fff;
@@ -456,6 +456,22 @@ h1, h2, h3, h4, h5, h6 {
 
 .expense-search {
     min-height: 44px;
+}
+
+.history-filter {
+    width: 100%;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border-soft);
+}
+
+.expense-month-group th {
+    padding: 12px 16px !important;
+    color: var(--navy) !important;
+    background: #fbf7eb !important;
+    border-top: 1px solid #eee4c9;
+    font-size: .9rem;
+    letter-spacing: .02em;
 }
 
 .expense-actions form {

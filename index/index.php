@@ -3,7 +3,7 @@
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
 require_once __DIR__ . "/../pembayaran.php";
-auth_require_login();
+$user_id = auth_require_login($koneksi);
 
 function e($value) {
     return htmlspecialchars((string) $value, ENT_QUOTES, "UTF-8");
@@ -13,15 +13,19 @@ function rupiah($angka) {
     return "Rp " . number_format((float) $angka, 0, ",", ".");
 }
 
-$total_bayar_sql = pembayaran_total_sql("b");
+$total_bayar_sql = pembayaran_total_sql($koneksi, "b");
 $query_total = mysqli_query($koneksi, "
     SELECT
         COUNT(*) AS total,
         COALESCE(SUM(($total_bayar_sql) >= b.harga), 0) AS sudah,
         COALESCE(SUM(($total_bayar_sql) < b.harga), 0) AS belum,
         COALESCE(SUM(($total_bayar_sql) < b.harga AND b.jenis = 'Kebutuhan'), 0) AS kebutuhan,
-        COALESCE(SUM(($total_bayar_sql) < b.harga AND b.jenis = 'Keinginan'), 0) AS keinginan
+        COALESCE(SUM(($total_bayar_sql) < b.harga AND b.jenis = 'Keinginan'), 0) AS keinginan,
+        COALESCE(SUM(b.harga), 0) AS total_target,
+        COALESCE(SUM(($total_bayar_sql)), 0) AS total_dibayar,
+        COALESCE(SUM(GREATEST(b.harga - ($total_bayar_sql), 0)), 0) AS total_sisa
     FROM barang b
+    WHERE " . auth_user_scope($koneksi, "b") . "
 ");
 
 $stat = mysqli_fetch_assoc($query_total);
@@ -31,6 +35,9 @@ $sudah_dibeli = (int) ($stat["sudah"] ?? 0);
 $belum_dibeli = (int) ($stat["belum"] ?? 0);
 $total_kebutuhan = (int) ($stat["kebutuhan"] ?? 0);
 $total_keinginan = (int) ($stat["keinginan"] ?? 0);
+$total_target = (float) ($stat["total_target"] ?? 0);
+$total_dibayar = (float) ($stat["total_dibayar"] ?? 0);
+$total_sisa = (float) ($stat["total_sisa"] ?? 0);
 
 $persentase = $total_barang > 0
     ? round(($sudah_dibeli / $total_barang) * 100)
@@ -40,7 +47,8 @@ $persentase = $total_barang > 0
 $query_minggu = mysqli_query($koneksi, "
     SELECT COALESCE(SUM(jumlah), 0) AS total
     FROM pengeluaran
-    WHERE YEARWEEK(tanggal_pengeluaran, 1)
+    WHERE " . auth_user_scope($koneksi, "pengeluaran") . "
+      AND YEARWEEK(tanggal_pengeluaran, 1)
         = YEARWEEK(CURDATE(), 1)
 ");
 $total_minggu = (float) mysqli_fetch_assoc($query_minggu)["total"];
@@ -49,7 +57,8 @@ $total_minggu = (float) mysqli_fetch_assoc($query_minggu)["total"];
 $query_bulan = mysqli_query($koneksi, "
     SELECT COALESCE(SUM(jumlah), 0) AS total
     FROM pengeluaran
-    WHERE YEAR(tanggal_pengeluaran) = YEAR(CURDATE())
+    WHERE " . auth_user_scope($koneksi, "pengeluaran") . "
+      AND YEAR(tanggal_pengeluaran) = YEAR(CURDATE())
       AND MONTH(tanggal_pengeluaran) = MONTH(CURDATE())
 ");
 $total_bulan = (float) mysqli_fetch_assoc($query_bulan)["total"];
@@ -61,6 +70,7 @@ $query_kebutuhan = mysqli_query($koneksi, "
            GREATEST(b.harga - ($total_bayar_sql), 0) AS sisa_pembayaran
     FROM barang b
     WHERE b.jenis = 'Kebutuhan'
+      AND " . auth_user_scope($koneksi, "b") . "
       AND ($total_bayar_sql) < b.harga
     ORDER BY b.id_barang DESC
     LIMIT 5
@@ -72,6 +82,7 @@ $query_keinginan = mysqli_query($koneksi, "
            GREATEST(b.harga - ($total_bayar_sql), 0) AS sisa_pembayaran
     FROM barang b
     WHERE b.jenis = 'Keinginan'
+      AND " . auth_user_scope($koneksi, "b") . "
       AND ($total_bayar_sql) < b.harga
     ORDER BY b.id_barang DESC
     LIMIT 5
@@ -81,6 +92,7 @@ $query_keinginan = mysqli_query($koneksi, "
 $query_pengeluaran = mysqli_query($koneksi, "
     SELECT *
     FROM pengeluaran
+    WHERE " . auth_user_scope($koneksi, "pengeluaran") . "
     ORDER BY tanggal_pengeluaran DESC, id_pengeluaran DESC
     LIMIT 5
 ");
@@ -91,7 +103,8 @@ $query_grafik = mysqli_query($koneksi, "
         DATE(tanggal_pengeluaran) AS tanggal,
         COALESCE(SUM(jumlah), 0) AS total
     FROM pengeluaran
-    WHERE tanggal_pengeluaran >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    WHERE " . auth_user_scope($koneksi, "pengeluaran") . "
+      AND tanggal_pengeluaran >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
       AND tanggal_pengeluaran < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
     GROUP BY DATE(tanggal_pengeluaran)
     ORDER BY tanggal ASC
@@ -481,6 +494,11 @@ for ($i = 6; $i >= 0; $i--) {
                         <i class="bi bi-wallet2 me-1"></i> Pengeluaran
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="../profile.php">
+                        <i class="bi bi-person-circle me-1"></i> Profil
+                    </a>
+                </li>
                 <li class="nav-item ms-lg-2">
                     <form method="POST" action="../logout.php">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
@@ -493,6 +511,13 @@ for ($i = 6; $i >= 0; $i--) {
 </nav>
 
 <main class="page-container">
+
+    <?php if (auth_legacy_mode_notice($koneksi)): ?>
+        <div class="alert alert-warning" role="status">
+            Database masih memakai mode satu akun. Data lama belum dipetakan ke <code>user_id</code>;
+            pendaftaran akun tambahan dan isolasi multi-user belum aktif.
+        </div>
+    <?php endif; ?>
 
     <div class="page-heading">
         <div>
@@ -552,6 +577,32 @@ for ($i = 6; $i >= 0; $i--) {
             </div>
         </div>
     </div>
+
+    <section class="panel">
+        <div class="panel-heading">
+            <h5><i class="bi bi-wallet2 me-2"></i>Ringkasan Wishlist</h5>
+        </div>
+        <div class="row g-3">
+            <div class="col-sm-4">
+                <div class="type-summary">
+                    <strong>Target harga</strong>
+                    <div class="type-number"><?= rupiah($total_target) ?></div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="type-summary">
+                    <strong>Total dibayar</strong>
+                    <div class="type-number"><?= rupiah($total_dibayar) ?></div>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="type-summary">
+                    <strong>Sisa pembayaran</strong>
+                    <div class="type-number"><?= rupiah($total_sisa) ?></div>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <div class="row g-4 mb-1">
         <div class="col-lg-7">
@@ -673,8 +724,8 @@ for ($i = 6; $i >= 0; $i--) {
                             <td class="money"><?= rupiah($barang["total_dibayar"]) ?></td>
                             <td class="money"><?= rupiah($barang["sisa_pembayaran"]) ?></td>
                             <td>
-                                <span class="badge-status status-belum">
-                                    Belum Lunas
+                                <span class="badge-status <?= (float) $barang["total_dibayar"] > 0 ? "status-cicil" : "status-belum" ?>">
+                                    <?= (float) $barang["total_dibayar"] > 0 ? "Sedang Dicicil" : "Belum Dibayar" ?>
                                 </span>
                             </td>
                         </tr>
@@ -715,8 +766,8 @@ for ($i = 6; $i >= 0; $i--) {
                             <td class="money"><?= rupiah($barang["total_dibayar"]) ?></td>
                             <td class="money"><?= rupiah($barang["sisa_pembayaran"]) ?></td>
                             <td>
-                                <span class="badge-status status-belum">
-                                    Belum Lunas
+                                <span class="badge-status <?= (float) $barang["total_dibayar"] > 0 ? "status-cicil" : "status-belum" ?>">
+                                    <?= (float) $barang["total_dibayar"] > 0 ? "Sedang Dicicil" : "Belum Dibayar" ?>
                                 </span>
                             </td>
                         </tr>

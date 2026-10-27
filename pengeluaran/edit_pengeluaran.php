@@ -2,7 +2,7 @@
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
 require_once __DIR__ . "/../pembayaran.php";
-auth_require_login();
+$user_id = auth_require_login($koneksi);
 
 $id = filter_input(INPUT_GET, "id", FILTER_VALIDATE_INT);
 
@@ -13,7 +13,8 @@ if (!$id || $id < 1) {
 // Ambil data pengeluaran
 $stmt = mysqli_prepare(
     $koneksi,
-    "SELECT * FROM pengeluaran WHERE id_pengeluaran = ?"
+    "SELECT * FROM pengeluaran
+     WHERE id_pengeluaran = ? AND " . auth_user_scope($koneksi, "pengeluaran")
 );
 mysqli_stmt_bind_param($stmt, "i", $id);
 mysqli_stmt_execute($stmt);
@@ -22,6 +23,7 @@ $hasil = mysqli_stmt_get_result($stmt);
 $data = mysqli_fetch_assoc($hasil);
 
 if (!$data) {
+    http_response_code(404);
     exit("Data pengeluaran tidak ditemukan.");
 }
 
@@ -60,6 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if (
         !auth_verify_csrf($_POST["csrf_token"] ?? null) ||
+        !auth_consume_one_time_token("expense-edit-" . $id, $_POST["operation_token"] ?? null) ||
         $nama === "" ||
         strlen($nama) > 150 ||
         ($id_barang_input !== "" && (!$id_barang || $id_barang < 1)) ||
@@ -68,7 +71,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         strlen($catatan) > 255
     ) {
         $pesan_error = auth_verify_csrf($_POST["csrf_token"] ?? null)
-            ? "Periksa kembali semua isian."
+            ? "Formulir sudah digunakan atau periksa kembali semua isian."
             : "Sesi formulir kedaluwarsa. Silakan muat ulang halaman.";
     } else {
         try {
@@ -79,6 +82,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 "SELECT id_barang
                  FROM pengeluaran
                  WHERE id_pengeluaran = ?
+                   AND " . auth_user_scope($koneksi, "pengeluaran") . "
                  FOR UPDATE"
             );
             mysqli_stmt_bind_param($cek_lama, "i", $id);
@@ -103,7 +107,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             foreach ($barang_dikunci as $barang_id_dikunci) {
                 $kunci_barang = mysqli_prepare(
                     $koneksi,
-                    "SELECT id_barang FROM barang WHERE id_barang = ? FOR UPDATE"
+                    "SELECT id_barang FROM barang
+                     WHERE id_barang = ?
+                       AND " . auth_user_scope($koneksi, "barang") . "
+                     FOR UPDATE"
                 );
                 mysqli_stmt_bind_param($kunci_barang, "i", $barang_id_dikunci);
                 mysqli_stmt_execute($kunci_barang);
@@ -115,7 +122,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if ($id_barang !== null) {
                 $cek_barang = mysqli_prepare(
                     $koneksi,
-                    "SELECT id_barang, harga FROM barang WHERE id_barang = ?"
+                    "SELECT id_barang, harga FROM barang
+                     WHERE id_barang = ?
+                       AND " . auth_user_scope($koneksi, "barang")
                 );
                 mysqli_stmt_bind_param($cek_barang, "i", $id_barang);
                 mysqli_stmt_execute($cek_barang);
@@ -128,15 +137,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         $koneksi,
                         "SELECT COALESCE(SUM(jumlah), 0) AS total_bayar
                      FROM pengeluaran
-                     WHERE id_barang = ?"
+                     WHERE id_barang = ?
+                       AND id_pengeluaran <> ?
+                       AND " . auth_user_scope($koneksi, "pengeluaran")
                     );
-                    mysqli_stmt_bind_param($cek_total, "i", $id_barang);
+                    mysqli_stmt_bind_param($cek_total, "ii", $id_barang, $id);
                     mysqli_stmt_execute($cek_total);
                     $total_bayar = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_total));
                     mysqli_stmt_close($cek_total);
 
-                    $barang_baru_valid = (float) $total_bayar["total_bayar"]
-                        < (float) $barang_tujuan["harga"];
+                    $barang_baru_valid = round((float) $total_bayar["total_bayar"] + $jumlah, 2)
+                        <= round((float) $barang_tujuan["harga"], 2);
+                } elseif ($barang_baru_valid) {
+                    $cek_total = mysqli_prepare(
+                        $koneksi,
+                        "SELECT COALESCE(SUM(jumlah), 0) AS total_bayar
+                         FROM pengeluaran
+                         WHERE id_barang = ?
+                           AND id_pengeluaran <> ?
+                           AND " . auth_user_scope($koneksi, "pengeluaran")
+                    );
+                    mysqli_stmt_bind_param($cek_total, "ii", $id_barang, $id);
+                    mysqli_stmt_execute($cek_total);
+                    $total_bayar = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_total));
+                    mysqli_stmt_close($cek_total);
+                    $barang_baru_valid = round((float) $total_bayar["total_bayar"] + $jumlah, 2)
+                        <= round((float) $barang_tujuan["harga"], 2);
                 }
 
                 if (!$barang_baru_valid) {
@@ -155,6 +181,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             tanggal_pengeluaran = ?,
                             catatan = ?
                         WHERE id_pengeluaran = ?
+                          AND " . auth_user_scope($koneksi, "pengeluaran") . "
                     ");
 
                     mysqli_stmt_bind_param(
@@ -175,6 +202,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             tanggal_pengeluaran = ?,
                             catatan = ?
                         WHERE id_pengeluaran = ?
+                          AND " . auth_user_scope($koneksi, "pengeluaran") . "
                     ");
 
                     mysqli_stmt_bind_param(
@@ -228,10 +256,12 @@ $stmt_barang = mysqli_prepare(
     $koneksi,
     "SELECT b.id_barang, b.nama_barang
      FROM barang b
+     WHERE " . auth_user_scope($koneksi, "b") . "
      ORDER BY b.nama_barang"
 );
 mysqli_stmt_execute($stmt_barang);
 $query_barang = mysqli_stmt_get_result($stmt_barang);
+$operation_token = auth_one_time_token("expense-edit-" . $id);
 ?>
 
 <!DOCTYPE html>
@@ -277,6 +307,7 @@ $query_barang = mysqli_stmt_get_result($stmt_barang);
                         <div class="expense-form-card">
                             <form method="POST" data-loading-form>
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
+                                <input type="hidden" name="operation_token" value="<?= htmlspecialchars($operation_token, ENT_QUOTES, "UTF-8") ?>">
                                 <div class="mb-3">
                                     <label class="form-label">Nama Pengeluaran</label>
                                     <input

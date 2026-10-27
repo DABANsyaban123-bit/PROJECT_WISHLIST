@@ -3,7 +3,7 @@
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
 require_once __DIR__ . "/../pembayaran.php";
-auth_require_login();
+$user_id = auth_require_login($koneksi);
 
 function e($value) {
     return htmlspecialchars((string) $value, ENT_QUOTES, "UTF-8");
@@ -13,24 +13,35 @@ function rupiah($angka) {
     return "Rp " . number_format((float) $angka, 0, ",", ".");
 }
 
-$cari = trim($_GET["cari"] ?? "");
-$kategori = trim($_GET["kategori"] ?? "");
-$jenis_filter = trim($_GET["jenis"] ?? "");
+$cari_input = $_GET["cari"] ?? "";
+$kategori_input = $_GET["kategori"] ?? "";
+$jenis_input = $_GET["jenis"] ?? "";
+$cari = is_string($cari_input) ? trim($cari_input) : "";
+$kategori = is_string($kategori_input) ? trim($kategori_input) : "";
+$jenis_filter = is_string($jenis_input) ? trim($jenis_input) : "";
+$status_filter = is_string($_GET["status"] ?? null) ? $_GET["status"] : "";
 
 $jenis_valid = ["Kebutuhan", "Keinginan"];
+$status_valid = ["Belum Dibayar", "Sedang Dicicil"];
 
 if (!in_array($jenis_filter, $jenis_valid, true)) {
     $jenis_filter = "";
 }
+if (!in_array($status_filter, $status_valid, true)) {
+    $status_filter = "";
+}
 
-$total_bayar_sql = pembayaran_total_sql("b");
+$total_bayar_sql = pembayaran_total_sql($koneksi, "b");
 
 $sql = "
     SELECT b.*,
            ($total_bayar_sql) AS total_dibayar,
-           GREATEST(b.harga - ($total_bayar_sql), 0) AS sisa_pembayaran
+           GREATEST(b.harga - ($total_bayar_sql), 0) AS sisa_pembayaran,
+           CASE WHEN ($total_bayar_sql) = 0
+                THEN 'Belum Dibayar' ELSE 'Sedang Dicicil' END AS status_pembayaran
     FROM barang b
     WHERE ($total_bayar_sql) < b.harga
+      AND " . auth_user_scope($koneksi, "b") . "
 ";
 
 $conditions = [];
@@ -53,6 +64,12 @@ if ($jenis_filter !== "") {
     $conditions[] = "b.jenis = ?";
     $params[] = $jenis_filter;
     $types .= "s";
+}
+
+if ($status_filter === "Belum Dibayar") {
+    $conditions[] = "($total_bayar_sql) = 0";
+} elseif ($status_filter === "Sedang Dicicil") {
+    $conditions[] = "($total_bayar_sql) > 0";
 }
 
 if (!empty($conditions)) {
@@ -92,6 +109,7 @@ $query_statistik = mysqli_query($koneksi, "
         COALESCE(SUM(($total_bayar_sql) < b.harga AND b.jenis = 'Kebutuhan'), 0) AS kebutuhan,
         COALESCE(SUM(($total_bayar_sql) < b.harga AND b.jenis = 'Keinginan'), 0) AS keinginan
     FROM barang b
+    WHERE " . auth_user_scope($koneksi, "b") . "
 ");
 
 $stat = mysqli_fetch_assoc($query_statistik);
@@ -106,7 +124,8 @@ $total_keinginan = (int) $stat["keinginan"];
 $query_kategori = mysqli_query($koneksi, "
     SELECT DISTINCT b.kategori
     FROM barang b
-    WHERE b.kategori IS NOT NULL
+    WHERE " . auth_user_scope($koneksi, "b") . "
+      AND b.kategori IS NOT NULL
       AND b.kategori <> ''
     ORDER BY b.kategori ASC
 ");
@@ -482,6 +501,11 @@ $query_error = "";
                         <i class="bi bi-wallet2 me-1"></i> Pengeluaran
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="../profile.php">
+                        <i class="bi bi-person-circle me-1"></i> Profil
+                    </a>
+                </li>
                 <li class="nav-item ms-lg-2">
                     <form method="POST" action="../logout.php">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
@@ -494,6 +518,13 @@ $query_error = "";
 </nav>
 
 <main class="page-container">
+
+    <?php if (auth_legacy_mode_notice($koneksi)): ?>
+        <div class="alert alert-warning" role="status">
+            Database masih memakai mode satu akun. Data lama belum dipetakan ke <code>user_id</code>;
+            pendaftaran akun tambahan dan isolasi multi-user belum aktif.
+        </div>
+    <?php endif; ?>
 
     <div class="page-heading">
         <div>
@@ -599,6 +630,19 @@ $query_error = "";
                     </select>
                 </div>
 
+                <div class="col-lg-2 col-md-6">
+                    <label class="filter-label" for="status">Status pembayaran</label>
+                    <select class="form-select" id="status" name="status" data-filter-select>
+                        <option value="">Semua status</option>
+                        <?php foreach ($status_valid as $status_option): ?>
+                            <option value="<?= e($status_option) ?>"
+                                <?= $status_filter === $status_option ? "selected" : "" ?>>
+                                <?= e($status_option) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
                 <div class="col-lg-4 col-md-12 d-flex gap-2">
                     <button type="submit" class="btn btn-filter flex-grow-1" data-filter-submit>
                         <i class="bi bi-search me-1"></i> Cari
@@ -649,7 +693,7 @@ $query_error = "";
                         <tr data-filter-row
                             data-kind="<?= e($barang["jenis"]) ?>"
                             data-category="<?= e($barang["kategori"]) ?>"
-                            data-status="Belum Lunas">
+                            data-status="<?= e($barang["status_pembayaran"]) ?>">
                             <td><?= $i + 1 ?></td>
                             <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
                             <td><?= e($barang["kategori"]) ?></td>
@@ -657,8 +701,8 @@ $query_error = "";
                             <td class="money"><?= rupiah($barang["total_dibayar"]) ?></td>
                             <td class="money"><?= rupiah($barang["sisa_pembayaran"]) ?></td>
                             <td>
-                                <span class="badge-status status-belum">
-                                    Belum Lunas
+                                <span class="badge-status <?= $barang["status_pembayaran"] === "Belum Dibayar" ? "status-belum" : "status-cicil" ?>">
+                                    <?= e($barang["status_pembayaran"]) ?>
                                 </span>
                             </td>
                             <td class="text-nowrap">
@@ -731,7 +775,7 @@ $query_error = "";
                         <tr data-filter-row
                             data-kind="<?= e($barang["jenis"]) ?>"
                             data-category="<?= e($barang["kategori"]) ?>"
-                            data-status="Belum Lunas">
+                            data-status="<?= e($barang["status_pembayaran"]) ?>">
                             <td><?= $i + 1 ?></td>
                             <td><strong><?= e($barang["nama_barang"]) ?></strong></td>
                             <td><?= e($barang["kategori"]) ?></td>
@@ -739,8 +783,8 @@ $query_error = "";
                             <td class="money"><?= rupiah($barang["total_dibayar"]) ?></td>
                             <td class="money"><?= rupiah($barang["sisa_pembayaran"]) ?></td>
                             <td>
-                                <span class="badge-status status-belum">
-                                    Belum Lunas
+                                <span class="badge-status <?= $barang["status_pembayaran"] === "Belum Dibayar" ? "status-belum" : "status-cicil" ?>">
+                                    <?= e($barang["status_pembayaran"]) ?>
                                 </span>
                             </td>
                             <td class="text-nowrap">

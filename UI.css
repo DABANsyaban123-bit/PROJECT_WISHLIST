@@ -215,6 +215,11 @@ h1, h2, h3, h4, h5, h6 {
     background: #dcf3e6;
 }
 
+.status-cicil {
+    color: #31588d;
+    background: #e6eefb;
+}
+
 .page-container {
     width: min(100% - 40px, 1400px);
     padding: 36px 0 48px !important;

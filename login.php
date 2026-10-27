@@ -2,7 +2,7 @@
 include_once __DIR__ . "/config.php";
 require_once __DIR__ . "/auth.php";
 
-if (!empty($_SESSION["user_id"])) {
+if (isset($_SESSION["user_id"])) {
     header("Location: index/index.php");
     exit;
 }
@@ -39,10 +39,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && $error === "") {
             "SELECT id, username, password_hash FROM users WHERE username = ? LIMIT 1"
         );
 
-        if (!$stmt) {
-            die("Gagal menyiapkan proses login: " . mysqli_error($koneksi));
-        }
-
         mysqli_stmt_bind_param($stmt, "s", $username);
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
@@ -65,6 +61,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && $error === "") {
 
 $csrf_token = auth_csrf_token();
 $setup_complete = ($_GET["setup"] ?? "") === "complete";
+$registration_complete = ($_GET["registered"] ?? "") === "1";
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -100,6 +97,8 @@ $setup_complete = ($_GET["setup"] ?? "") === "complete";
 
                 <?php if ($setup_complete): ?>
                     <div class="alert alert-success" role="status">Akun berhasil dibuat. Silakan masuk.</div>
+                <?php elseif ($registration_complete): ?>
+                    <div class="alert alert-success" role="status">Pendaftaran berhasil. Silakan masuk.</div>
                 <?php endif; ?>
 
                 <?php if ($error !== ""): ?>
@@ -128,7 +127,11 @@ $setup_complete = ($_GET["setup"] ?? "") === "complete";
                         Masuk <i class="bi bi-arrow-right ms-2"></i>
                     </button>
                 </form>
-                <p class="auth-footnote">Belum ada akun? <a href="setup.php">Siapkan akun pertama</a></p>
+                <?php if (auth_registration_enabled($koneksi)): ?>
+                    <p class="auth-footnote">Belum punya akun? <a href="register.php">Daftar sekarang</a></p>
+                <?php elseif (!$has_account): ?>
+                    <p class="auth-footnote">Belum ada akun? <a href="setup.php">Siapkan akun pertama</a></p>
+                <?php endif; ?>
             </div>
             <div class="auth-copyright">Wishlist PJK <span>&middot;</span> Kelola rencanamu dengan tenang</div>
         </section>

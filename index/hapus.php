@@ -2,7 +2,7 @@
 <?php
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
-auth_require_login();
+$user_id = auth_require_login($koneksi);
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST" || !auth_verify_csrf($_POST["csrf_token"] ?? null)) {
     http_response_code(400);
@@ -25,7 +25,9 @@ try {
 
     $stmt = mysqli_prepare(
         $koneksi,
-        "SELECT id_barang FROM barang WHERE id_barang = ? FOR UPDATE"
+        "SELECT id_barang FROM barang
+         WHERE id_barang = ? AND " . auth_user_scope($koneksi, "barang") . "
+         FOR UPDATE"
     );
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
@@ -40,7 +42,10 @@ try {
 
     $stmt = mysqli_prepare(
         $koneksi,
-        "SELECT id_pengeluaran FROM pengeluaran WHERE id_barang = ? LIMIT 1"
+        "SELECT id_pengeluaran FROM pengeluaran
+         WHERE id_barang = ?
+           AND " . auth_user_scope($koneksi, "pengeluaran") . "
+         LIMIT 1"
     );
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
@@ -53,7 +58,11 @@ try {
         exit;
     }
 
-    $stmt = mysqli_prepare($koneksi, "DELETE FROM barang WHERE id_barang = ?");
+    $stmt = mysqli_prepare(
+        $koneksi,
+        "DELETE FROM barang
+         WHERE id_barang = ? AND " . auth_user_scope($koneksi, "barang")
+    );
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);

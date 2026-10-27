@@ -1,7 +1,7 @@
 <?php
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
-auth_require_login();
+$user_id = auth_require_login($koneksi);
 
 $cari_input = $_GET["cari"] ?? "";
 $cari = is_string($cari_input) ? trim($cari_input) : "";
@@ -10,6 +10,8 @@ $sampai = is_string($_GET["sampai"] ?? null) ? $_GET["sampai"] : "";
 $bulan = is_string($_GET["bulan"] ?? null) ? $_GET["bulan"] : "";
 $urutan = is_string($_GET["urutan"] ?? null) ? $_GET["urutan"] : "terbaru";
 $urutan = in_array($urutan, ["terbaru", "terlama"], true) ? $urutan : "terbaru";
+$scope_pengeluaran = auth_user_scope($koneksi, "p");
+$scope_barang = auth_user_scope($koneksi, "b");
 
 foreach (["dari", "sampai"] as $parameter_tanggal) {
     $nilai_tanggal = $$parameter_tanggal;
@@ -38,28 +40,31 @@ if ($bulan !== "" && (!$bulan_valid || $bulan_valid->format("Y-m") !== $bulan)) 
 // Ringkasan pengeluaran
 $query_total = mysqli_query($koneksi, "
     SELECT COALESCE(SUM(jumlah), 0) AS total
-    FROM pengeluaran
+    FROM pengeluaran p
+    WHERE $scope_pengeluaran
 ");
 $total_semua = mysqli_fetch_assoc($query_total)['total'];
 
 $query_minggu = mysqli_query($koneksi, "
     SELECT COALESCE(SUM(jumlah), 0) AS total
-    FROM pengeluaran
-    WHERE YEARWEEK(tanggal_pengeluaran, 1)
+    FROM pengeluaran p
+    WHERE $scope_pengeluaran
+      AND YEARWEEK(tanggal_pengeluaran, 1)
         = YEARWEEK(CURDATE(), 1)
 ");
 $total_minggu = mysqli_fetch_assoc($query_minggu)['total'];
 
 $query_bulan = mysqli_query($koneksi, "
     SELECT COALESCE(SUM(jumlah), 0) AS total
-    FROM pengeluaran
-    WHERE YEAR(tanggal_pengeluaran) = YEAR(CURDATE())
+    FROM pengeluaran p
+    WHERE $scope_pengeluaran
+      AND YEAR(tanggal_pengeluaran) = YEAR(CURDATE())
       AND MONTH(tanggal_pengeluaran) = MONTH(CURDATE())
 ");
 $total_bulan = mysqli_fetch_assoc($query_bulan)['total'];
 
 // Riwayat transaksi dapat disaring tanpa mengubah ringkasan seluruh pengeluaran.
-$kondisi = [];
+$kondisi = [$scope_pengeluaran];
 $parameter = [];
 $tipe_parameter = "";
 
@@ -88,7 +93,7 @@ if ($bulan !== "") {
     $tipe_parameter .= "s";
 }
 
-$where = $kondisi ? "WHERE " . implode(" AND ", $kondisi) : "";
+$where = "WHERE " . implode(" AND ", $kondisi);
 $arah_urutan = $urutan === "terlama" ? "ASC" : "DESC";
 $stmt_pengeluaran = mysqli_prepare($koneksi, "
     SELECT p.*, b.nama_barang, b.harga AS harga_barang,
@@ -96,16 +101,19 @@ $stmt_pengeluaran = mysqli_prepare($koneksi, "
                SELECT COUNT(*)
                FROM pengeluaran p2
                WHERE p2.id_barang = p.id_barang
+                 AND " . auth_user_scope($koneksi, "p2") . "
                  AND p2.id_pengeluaran <= p.id_pengeluaran
            ) AS nomor_pembayaran,
            (
                SELECT COALESCE(SUM(p3.jumlah), 0)
                FROM pengeluaran p3
                WHERE p3.id_barang = p.id_barang
+                 AND " . auth_user_scope($koneksi, "p3") . "
            ) AS total_pembayaran_barang
     FROM pengeluaran AS p
     LEFT JOIN barang AS b
         ON p.id_barang = b.id_barang
+       AND $scope_barang
     $where
     ORDER BY p.tanggal_pengeluaran $arah_urutan,
              p.id_pengeluaran $arah_urutan
@@ -401,6 +409,11 @@ $query_pengeluaran = mysqli_stmt_get_result($stmt_pengeluaran);
                             Pengeluaran
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../profile.php">
+                            Profil
+                        </a>
+                    </li>
                     <li class="nav-item ms-lg-2">
                         <form method="POST" action="../logout.php">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(auth_csrf_token(), ENT_QUOTES, "UTF-8") ?>">
@@ -414,6 +427,13 @@ $query_pengeluaran = mysqli_stmt_get_result($stmt_pengeluaran);
     </nav>
 
     <main class="container expense-page">
+
+        <?php if (auth_legacy_mode_notice($koneksi)): ?>
+            <div class="alert alert-warning" role="status">
+                Database masih memakai mode satu akun. Data lama belum dipetakan ke <code>user_id</code>;
+                pendaftaran akun tambahan dan isolasi multi-user belum aktif.
+            </div>
+        <?php endif; ?>
 
         <!-- HEADER -->
         <header class="expense-header">

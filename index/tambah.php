@@ -3,7 +3,7 @@
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
 require_once __DIR__ . "/../pembayaran.php";
-auth_require_login();
+$user_id = auth_require_login($koneksi);
 
 $pesan = "";
 $nama_barang = "";
@@ -23,16 +23,21 @@ $daftar_kategori = [
 ];
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $nama_barang = trim($_POST["nama_barang"] ?? "");
-    $kategori = trim($_POST["kategori"] ?? "");
-    $jenis = $_POST["jenis"] ?? "Keinginan";
-    $harga_input = $_POST["harga"] ?? "";
+    $nama_input = $_POST["nama_barang"] ?? "";
+    $kategori_input = $_POST["kategori"] ?? "";
+    $jenis_input = $_POST["jenis"] ?? "Keinginan";
+    $harga_post = $_POST["harga"] ?? "";
+    $nama_barang = is_string($nama_input) ? trim($nama_input) : "";
+    $kategori = is_string($kategori_input) ? trim($kategori_input) : "";
+    $jenis = is_string($jenis_input) ? $jenis_input : "";
+    $harga_input = is_string($harga_post) ? $harga_post : "";
     $harga = nominal_normalisasi($harga_input);
     $jenis_valid = ["Kebutuhan", "Keinginan"];
 
     if (
         !auth_verify_csrf($_POST["csrf_token"] ?? null) ||
         $nama_barang === "" ||
+        strlen($nama_barang) > 255 ||
         !in_array($kategori, $daftar_kategori, true) ||
         !in_array($jenis, $jenis_valid, true) ||
         $harga === null ||
@@ -45,8 +50,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt = mysqli_prepare(
             $koneksi,
             "INSERT INTO barang
-                (nama_barang, kategori, jenis, harga, status)
-             VALUES (?, ?, ?, ?, ?)"
+                (nama_barang, kategori, jenis, harga, status"
+                . auth_owner_insert_columns($koneksi) . ")
+             VALUES (?, ?, ?, ?, ?" . auth_owner_insert_values($koneksi) . ")"
         );
 
         if ($stmt) {

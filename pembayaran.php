@@ -43,7 +43,7 @@ function nominal_format_input(mixed $nilai): string
     return number_format($jumlah, $desimal > 0 ? 2 : 0, ',', '.');
 }
 
-function pembayaran_total_sql(string $barang_alias = "b"): string
+function pembayaran_total_sql(mysqli $koneksi, string $barang_alias = "b"): string
 {
     if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $barang_alias)) {
         throw new InvalidArgumentException("Alias barang tidak valid.");
@@ -53,6 +53,7 @@ function pembayaran_total_sql(string $barang_alias = "b"): string
         SELECT SUM(p.jumlah)
         FROM pengeluaran p
         WHERE p.id_barang = {$barang_alias}.id_barang
+          AND " . auth_user_scope($koneksi, "p") . "
     ), 0)";
 }
 
@@ -62,8 +63,11 @@ function pembayaran_sinkronkan_status(mysqli $koneksi, int $id_barang): void
         $koneksi,
         "SELECT b.harga, COALESCE(SUM(p.jumlah), 0) AS total_bayar
          FROM barang b
-         LEFT JOIN pengeluaran p ON p.id_barang = b.id_barang
+         LEFT JOIN pengeluaran p
+           ON p.id_barang = b.id_barang
+          AND " . auth_user_scope($koneksi, "p") . "
          WHERE b.id_barang = ?
+           AND " . auth_user_scope($koneksi, "b") . "
          GROUP BY b.id_barang, b.harga"
     );
     mysqli_stmt_bind_param($stmt, "i", $id_barang);
@@ -80,7 +84,10 @@ function pembayaran_sinkronkan_status(mysqli $koneksi, int $id_barang): void
         : "Belum Dibeli";
     $stmt = mysqli_prepare(
         $koneksi,
-        "UPDATE barang SET status = ? WHERE id_barang = ?"
+        "UPDATE barang
+         SET status = ?
+         WHERE id_barang = ?
+           AND " . auth_user_scope($koneksi, "barang")
     );
     mysqli_stmt_bind_param($stmt, "si", $status, $id_barang);
     mysqli_stmt_execute($stmt);

@@ -3,7 +3,7 @@
 include_once __DIR__ . "/../config.php";
 require_once __DIR__ . "/../auth.php";
 require_once __DIR__ . "/../pembayaran.php";
-auth_require_login();
+$user_id = auth_require_login($koneksi);
 
 $id = filter_input(INPUT_GET, "id", FILTER_VALIDATE_INT);
 
@@ -14,7 +14,8 @@ if (!$id || $id < 1) {
 
 $stmt = mysqli_prepare(
     $koneksi,
-    "SELECT * FROM barang WHERE id_barang = ?"
+    "SELECT * FROM barang
+     WHERE id_barang = ? AND " . auth_user_scope($koneksi, "barang")
 );
 mysqli_stmt_bind_param($stmt, "i", $id);
 mysqli_stmt_execute($stmt);
@@ -45,22 +46,26 @@ if (!in_array($barang["kategori"], $daftar_kategori, true)) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $nama_barang = trim($_POST["nama_barang"] ?? "");
-    $kategori = $_POST["kategori"] ?? "";
-    $jenis = $_POST["jenis"] ?? "";
-    $harga = $_POST["harga"] ?? "";
+    $nama_input = $_POST["nama_barang"] ?? "";
+    $kategori_input = $_POST["kategori"] ?? "";
+    $jenis_input = $_POST["jenis"] ?? "";
+    $harga_post = $_POST["harga"] ?? "";
+    $nama_barang = is_string($nama_input) ? trim($nama_input) : "";
+    $kategori = is_string($kategori_input) ? $kategori_input : "";
+    $jenis = is_string($jenis_input) ? $jenis_input : "";
+    $harga_input = is_string($harga_post) ? $harga_post : "";
+    $harga = nominal_normalisasi($harga_input);
 
     $jenis_valid = ["Kebutuhan", "Keinginan"];
 
     if (
         !auth_verify_csrf($_POST["csrf_token"] ?? null) ||
         $nama_barang === "" ||
+        strlen($nama_barang) > 255 ||
         !in_array($kategori, $daftar_kategori, true) ||
         !in_array($jenis, $jenis_valid, true) ||
-        $harga === "" ||
-        !is_numeric($harga) ||
-        !is_finite((float) $harga) ||
-        (float) $harga <= 0
+        $harga === null ||
+        $harga <= 0
     ) {
         $pesan = auth_verify_csrf($_POST["csrf_token"] ?? null)
             ? "Periksa kembali data yang kamu masukkan."
@@ -70,11 +75,31 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             mysqli_begin_transaction($koneksi);
             $kunci_barang = mysqli_prepare(
                 $koneksi,
-                "SELECT id_barang FROM barang WHERE id_barang = ? FOR UPDATE"
+                "SELECT id_barang FROM barang
+                 WHERE id_barang = ? AND " . auth_user_scope($koneksi, "barang") . "
+                 FOR UPDATE"
             );
             mysqli_stmt_bind_param($kunci_barang, "i", $id);
             mysqli_stmt_execute($kunci_barang);
             mysqli_stmt_close($kunci_barang);
+
+            $cek_pembayaran = mysqli_prepare(
+                $koneksi,
+                "SELECT COALESCE(SUM(jumlah), 0) AS total_dibayar
+                 FROM pengeluaran
+                 WHERE id_barang = ?
+                   AND " . auth_user_scope($koneksi, "pengeluaran")
+            );
+            mysqli_stmt_bind_param($cek_pembayaran, "i", $id);
+            mysqli_stmt_execute($cek_pembayaran);
+            $pembayaran_tercatat = mysqli_fetch_assoc(mysqli_stmt_get_result($cek_pembayaran));
+            mysqli_stmt_close($cek_pembayaran);
+
+            if ((float) $harga < (float) $pembayaran_tercatat["total_dibayar"]) {
+                mysqli_rollback($koneksi);
+                $pesan = "Harga target tidak dapat lebih rendah daripada total pembayaran yang sudah tercatat.";
+                throw new DomainException($pesan);
+            }
 
             $stmt = mysqli_prepare(
                 $koneksi,
@@ -83,7 +108,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                      kategori = ?,
                      jenis = ?,
                      harga = ?
-                 WHERE id_barang = ?"
+                 WHERE id_barang = ?
+                   AND " . auth_user_scope($koneksi, "barang")
             );
 
             mysqli_stmt_bind_param(
@@ -101,6 +127,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             mysqli_commit($koneksi);
             header("Location: daftar.php");
             exit;
+        } catch (DomainException $exception) {
+            $pesan = $exception->getMessage();
         } catch (mysqli_sql_exception $exception) {
             mysqli_rollback($koneksi);
             error_log("Wishlist PJK item update failed: " . $exception->getMessage());
@@ -205,14 +233,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 Harga (Rp)
                             </label>
                             <input
-                                type="number"
+                                type="text"
                                 id="harga"
                                 name="harga"
                                 class="form-control"
-                                min="0.01"
-                                step="0.01"
-                                value="<?= htmlspecialchars((string) $barang["harga"], ENT_QUOTES, "UTF-8") ?>"
+                                inputmode="decimal"
+                                data-rupiah-input
+                                value="<?= htmlspecialchars(nominal_format_input($barang["harga"]), ENT_QUOTES, "UTF-8") ?>"
                                 required>
+                            <div class="form-text">Pemisah ribuan otomatis; gunakan koma untuk nilai sen.</div>
                         </div>
 
                         <div class="d-flex gap-2">

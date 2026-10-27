@@ -25,7 +25,25 @@ const prepareRupiahInputs = (form) => {
     inputs.forEach((input) => {
         input.value = formatRupiahDigits(input.value);
         input.addEventListener("input", () => {
-            input.value = formatRupiahDigits(input.value);
+            const previousValue = input.value;
+            const caretPosition = input.selectionStart;
+            const digitsBeforeCaret = caretPosition === null
+                ? null
+                : previousValue.slice(0, caretPosition).replace(/\D/g, "").length;
+            const formattedValue = formatRupiahDigits(previousValue);
+            input.value = formattedValue;
+
+            if (digitsBeforeCaret !== null && document.activeElement === input) {
+                let nextCaretPosition = 0;
+                let digitsFound = 0;
+                while (nextCaretPosition < formattedValue.length && digitsFound < digitsBeforeCaret) {
+                    if (/\d/.test(formattedValue[nextCaretPosition])) {
+                        digitsFound += 1;
+                    }
+                    nextCaretPosition += 1;
+                }
+                input.setSelectionRange(nextCaretPosition, nextCaretPosition);
+            }
         });
     });
 

@@ -3,17 +3,11 @@
 include_once __DIR__ . "/config.php";
 require_once __DIR__ . "/auth.php";
 
-if (!empty($_SESSION["user_id"])) {
+if (isset($_SESSION["user_id"])) {
     header("Location: index/index.php");
     exit;
 }
 
-auth_ensure_users_table($koneksi);
-$result_akun = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM users");
-if (!$result_akun) {
-    die("Gagal memeriksa status akun: " . mysqli_error($koneksi));
-}
-$akun_tersedia = (int) mysqli_fetch_assoc($result_akun)["total"] > 0;
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -34,7 +28,7 @@ $akun_tersedia = (int) mysqli_fetch_assoc($result_akun)["total"] > 0;
         </a>
         <div class="landing-nav-links">
             <a href="#fitur">Fitur</a>
-            <a class="btn btn-outline-primary" href="login.php">Masuk</a>
+            <a class="btn btn-outline-primary" href="login.php">Masuk Sekarang</a>
         </div>
     </nav>
 
@@ -45,8 +39,8 @@ $akun_tersedia = (int) mysqli_fetch_assoc($result_akun)["total"] > 0;
                 <h1>Rencana yang baik dimulai dari <span>langkah kecil.</span></h1>
                 <p>Atur daftar kebutuhan dan keinginan, catat pembayaran bertahap, dan lihat progresmu dengan jelas dalam satu ruang pribadi.</p>
                 <div class="landing-actions">
-                    <a class="btn btn-primary btn-lg" href="<?= $akun_tersedia ? 'login.php' : 'setup.php' ?>">
-                        <?= $akun_tersedia ? 'Masuk ke aplikasi' : 'Mulai siapkan akun' ?>
+                    <a class="btn btn-primary btn-lg" href="login.php">
+                        Masuk Sekarang
                         <i class="bi bi-arrow-right ms-2"></i>
                     </a>
                     <a class="btn btn-outline-primary btn-lg" href="#fitur">Kenali fiturnya</a>
@@ -115,8 +109,8 @@ $akun_tersedia = (int) mysqli_fetch_assoc($result_akun)["total"] > 0;
                 <span class="landing-kicker">Mulai dengan satu rencana</span>
                 <h2>Siapkan wishlist-mu hari ini.</h2>
             </div>
-            <a class="btn btn-primary" href="<?= $akun_tersedia ? 'login.php' : 'setup.php' ?>">
-                <?= $akun_tersedia ? 'Masuk dengan aman' : 'Buat akun pertama' ?>
+            <a class="btn btn-primary" href="login.php">
+                Masuk Sekarang
                 <i class="bi bi-arrow-right ms-2"></i>
             </a>
         </section>

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . "/config.php";
 require_once __DIR__ . "/auth.php";
+require_once __DIR__ . "/pembayaran.php";
 
 $user_id = auth_require_login($koneksi);
 $statement = mysqli_prepare($koneksi, "SELECT username, password_hash FROM users WHERE id = ? LIMIT 1");
@@ -75,6 +76,39 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 }
 
 $csrf_token = auth_csrf_token();
+$total_bayar_sql = pembayaran_total_sql($koneksi, "b");
+$query_statistik = mysqli_query($koneksi, "
+    SELECT
+        COUNT(*) AS total_barang,
+        COALESCE(SUM(b.harga), 0) AS total_target,
+        COALESCE(SUM($total_bayar_sql), 0) AS total_pembayaran,
+        COALESCE(SUM(GREATEST(b.harga - ($total_bayar_sql), 0)), 0) AS total_sisa,
+        COALESCE(SUM(($total_bayar_sql) >= b.harga), 0) AS barang_lunas
+    FROM barang b
+    WHERE " . auth_user_scope($koneksi, "b")
+);
+$statistik = mysqli_fetch_assoc($query_statistik);
+
+$query_pengeluaran_statistik = mysqli_query($koneksi, "
+    SELECT COUNT(*) AS jumlah_transaksi, COALESCE(SUM(p.jumlah), 0) AS total_pengeluaran
+    FROM pengeluaran p
+    WHERE " . auth_user_scope($koneksi, "p")
+);
+$statistik_pengeluaran = mysqli_fetch_assoc($query_pengeluaran_statistik);
+
+$stmt_riwayat = mysqli_prepare($koneksi, "
+    SELECT p.nama_pengeluaran, p.jumlah, p.tanggal_pengeluaran,
+           b.nama_barang
+    FROM pengeluaran p
+    LEFT JOIN barang b
+      ON b.id_barang = p.id_barang
+     AND " . auth_user_scope($koneksi, "b") . "
+    WHERE " . auth_user_scope($koneksi, "p") . "
+    ORDER BY p.tanggal_pengeluaran DESC, p.id_pengeluaran DESC
+    LIMIT 5
+");
+mysqli_stmt_execute($stmt_riwayat);
+$riwayat = mysqli_stmt_get_result($stmt_riwayat);
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -83,21 +117,65 @@ $csrf_token = auth_csrf_token();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profil | Wishlist PJK</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="UI.css">
 </head>
 <body class="bg-light">
     <main class="container py-5 form-page">
-        <div class="row justify-content-center">
-            <div class="col-md-8 col-lg-6">
-                <div class="form-page-heading">
-                    <div>
-                        <h1 class="h3 mb-1">Profil akun</h1>
-                        <p>Perbarui nama pengguna atau kata sandi akunmu.</p>
+        <div class="form-page-heading">
+            <div>
+                <h1 class="h3 mb-1">Profil akun</h1>
+                <p>Kelola akun dan lihat ringkasan rencana keuanganmu.</p>
+            </div>
+            <a class="btn btn-outline-primary" href="index/index.php">Kembali ke dashboard</a>
+        </div>
+
+        <section class="mb-4" aria-label="Statistik akun">
+            <div class="row g-3">
+                <div class="col-sm-6 col-xl">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-secondary small mb-2">Total barang</div>
+                            <div class="h4 mb-0"><?= (int) $statistik["total_barang"] ?></div>
+                            <div class="small text-secondary mt-2"><?= (int) $statistik["barang_lunas"] ?> sudah lunas</div>
+                        </div>
                     </div>
-                    <a class="btn btn-outline-primary" href="index/index.php">Kembali ke dashboard</a>
                 </div>
+                <div class="col-sm-6 col-xl">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-secondary small mb-2">Total target</div>
+                            <div class="h5 mb-0">Rp <?= number_format((float) $statistik["total_target"], 0, ",", ".") ?></div>
+                            <div class="small text-secondary mt-2">Seluruh wishlist milikmu</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-secondary small mb-2">Pembayaran barang</div>
+                            <div class="h5 mb-0">Rp <?= number_format((float) $statistik["total_pembayaran"], 0, ",", ".") ?></div>
+                            <div class="small text-secondary mt-2">Sisa target Rp <?= number_format((float) $statistik["total_sisa"], 0, ",", ".") ?></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="text-secondary small mb-2">Total pengeluaran</div>
+                            <div class="h5 mb-0">Rp <?= number_format((float) $statistik_pengeluaran["total_pengeluaran"], 0, ",", ".") ?></div>
+                            <div class="small text-secondary mt-2"><?= (int) $statistik_pengeluaran["jumlah_transaksi"] ?> transaksi tercatat</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="row g-4">
+            <div class="col-lg-5">
                 <section class="card border-0 shadow-sm">
                     <div class="card-body p-4">
+                        <h2 class="h5 mb-4">Informasi akun</h2>
                         <?php if (auth_legacy_mode_notice($koneksi)): ?>
                             <div class="alert alert-warning" role="status">
                                 Data akun masih berjalan pada skema satu akun. Registrasi dan isolasi multi-user menunggu
@@ -138,6 +216,47 @@ $csrf_token = auth_csrf_token();
                     </div>
                 </section>
             </div>
+
+            <section class="col-lg-7" aria-labelledby="recent-expenses-heading">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                            <h2 class="h5 mb-0" id="recent-expenses-heading">Riwayat terbaru</h2>
+                            <a class="small" href="pengeluaran/pengeluaran.php">Lihat semua</a>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Tanggal</th>
+                                        <th>Pengeluaran</th>
+                                        <th>Barang</th>
+                                        <th class="text-end">Jumlah</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if (mysqli_num_rows($riwayat) > 0): ?>
+                                        <?php while ($transaksi = mysqli_fetch_assoc($riwayat)): ?>
+                                            <tr>
+                                                <td class="text-nowrap"><?= htmlspecialchars(date("d/m/Y", strtotime($transaksi["tanggal_pengeluaran"])), ENT_QUOTES, "UTF-8") ?></td>
+                                                <td><?= htmlspecialchars($transaksi["nama_pengeluaran"], ENT_QUOTES, "UTF-8") ?></td>
+                                                <td><?= htmlspecialchars($transaksi["nama_barang"] ?? "Umum", ENT_QUOTES, "UTF-8") ?></td>
+                                                <td class="text-end text-nowrap">Rp <?= number_format((float) $transaksi["jumlah"], 0, ",", ".") ?></td>
+                                            </tr>
+                                        <?php endwhile; ?>
+                                    <?php else: ?>
+                                        <tr>
+                                            <td colspan="4" class="text-center text-secondary py-4">
+                                                Belum ada transaksi pengeluaran.
+                                            </td>
+                                        </tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 </body>

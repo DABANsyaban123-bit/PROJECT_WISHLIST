@@ -131,7 +131,7 @@ for ($i = 6; $i >= 0; $i--) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | Wishlist PJK</title>
+    <title>Dashboard | Wishlist</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -469,7 +469,7 @@ for ($i = 6; $i >= 0; $i--) {
     <div class="container-fluid px-4">
         <a class="navbar-brand" href="index.php">
             <span class="brand-mark"><i class="bi bi-bag-heart-fill"></i></span>
-            Wishlist PJK
+            Wishlist
         </a>
 
         <button class="navbar-toggler bg-light" type="button"
@@ -814,7 +814,7 @@ for ($i = 6; $i >= 0; $i--) {
         </div>
     </section>
 
-    <div class="footer-note">Wishlist PJK &mdash; Catat kebutuhan, rencanakan keinginan, kelola pengeluaran.</div>
+    <div class="footer-note">Wishlist &mdash; Catat kebutuhan, rencanakan keinginan, kelola pengeluaran.</div>
 
 </main>
 

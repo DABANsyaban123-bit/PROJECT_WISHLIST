@@ -68,7 +68,7 @@ $registration_complete = ($_GET["registered"] ?? "") === "1";
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Masuk | Wishlist PJK</title>
+    <title>Masuk | Wishlist</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="UI.css">
@@ -78,7 +78,7 @@ $registration_complete = ($_GET["registered"] ?? "") === "1";
         <section class="auth-intro">
             <a class="auth-brand" href="index.php">
                 <span class="auth-brand-mark"><i class="bi bi-bag-heart-fill"></i></span>
-                Wishlist PJK
+                Wishlist
             </a>
             <div class="auth-intro-copy">
                 <span class="auth-kicker">Rencanakan dengan bijak</span>
@@ -127,13 +127,13 @@ $registration_complete = ($_GET["registered"] ?? "") === "1";
                         Masuk <i class="bi bi-arrow-right ms-2"></i>
                     </button>
                 </form>
-                <?php if (auth_registration_enabled($koneksi)): ?>
-                    <p class="auth-footnote">Belum punya akun? <a href="register.php">Daftar sekarang</a></p>
-                <?php elseif (!$has_account): ?>
+                <?php if (!$has_account): ?>
                     <p class="auth-footnote">Belum ada akun? <a href="setup.php">Siapkan akun pertama</a></p>
+                <?php else: ?>
+                    <p class="auth-footnote">Belum punya akun? <a href="register.php">Daftar sekarang</a></p>
                 <?php endif; ?>
             </div>
-            <div class="auth-copyright">Wishlist PJK <span>&middot;</span> Kelola rencanamu dengan tenang</div>
+            <div class="auth-copyright">Wishlist <span>&middot;</span> Kelola rencanamu dengan tenang</div>
         </section>
     </main>
 </body>

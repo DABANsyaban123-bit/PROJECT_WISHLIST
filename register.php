@@ -55,17 +55,17 @@ $csrf_token = auth_csrf_token();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daftar | Wishlist PJK</title>
+    <title>Daftar | Wishlist</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="UI.css">
 </head>
 <body class="auth-page auth-page-simple">
     <main class="auth-simple-layout">
-        <a class="auth-brand auth-brand-dark" href="index.php">Wishlist PJK</a>
+        <a class="auth-brand auth-brand-dark" href="index.php">Wishlist</a>
         <section class="auth-panel">
             <div class="auth-panel-icon"><i class="bi bi-person-plus"></i></div>
             <span class="auth-kicker">Akun baru</span>
-            <h1 class="h2">Daftar Wishlist PJK</h1>
+            <h1 class="h2">Daftar Wishlist</h1>
             <?php if (!$registration_enabled): ?>
                 <div class="alert alert-warning" role="status">
                     Pendaftaran ditutup sementara sampai migrasi kepemilikan data selesai dan diverifikasi.

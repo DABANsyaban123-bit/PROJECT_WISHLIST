@@ -141,7 +141,7 @@ $query_pengeluaran = mysqli_stmt_get_result($stmt_pengeluaran);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Pengeluaran | Wishlist PJK</title>
+    <title>Pengeluaran | Wishlist</title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
@@ -808,7 +808,7 @@ $query_pengeluaran = mysqli_stmt_get_result($stmt_pengeluaran);
         </section>
 
         <p class="text-secondary small text-center mt-4 mb-0">
-            Wishlist PJK — Kelola wishlist dan pengeluaranmu dengan lebih teratur.
+            Wishlist — Kelola wishlist dan pengeluaranmu dengan lebih teratur.
         </p>
 
     </main>

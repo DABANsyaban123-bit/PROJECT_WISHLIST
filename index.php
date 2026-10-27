@@ -15,7 +15,7 @@ if (isset($_SESSION["user_id"])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#263f70">
-    <title>Wishlist PJK | Rencanakan dengan tenang</title>
+    <title>Wishlist | Rencanakan dengan tenang</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="UI.css?v=20261025">
@@ -24,7 +24,7 @@ if (isset($_SESSION["user_id"])) {
     <nav class="landing-nav">
         <a class="landing-brand" href="index.php">
             <span class="landing-brand-icon"><i class="bi bi-bag-heart-fill"></i></span>
-            Wishlist <span>PJK</span>
+            Wishlist
         </a>
         <div class="landing-nav-links">
             <a href="#fitur">Fitur</a>
@@ -119,7 +119,7 @@ if (isset($_SESSION["user_id"])) {
     <footer class="landing-footer">
         <a class="landing-brand" href="index.php">
             <span class="landing-brand-icon"><i class="bi bi-bag-heart-fill"></i></span>
-            Wishlist <span>PJK</span>
+            Wishlist
         </a>
         <span>Rencanakan dengan bijak, jalani dengan tenang.</span>
     </footer>

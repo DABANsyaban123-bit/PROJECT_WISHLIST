@@ -822,7 +822,7 @@ $query_error = "";
     </section>
 
     <div class="footer-note">
-        Wishlist PJK &mdash; Barang lunas tersimpan dan riwayat pembayarannya tetap tersedia di halaman Pengeluaran.
+        Wishlist &mdash; Barang lunas tersimpan dan riwayat pembayarannya tetap tersedia di halaman Pengeluaran.
     </div>
 
 </main>
